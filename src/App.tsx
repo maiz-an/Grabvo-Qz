@@ -277,7 +277,18 @@ export default function App() {
             key="printers"
             className="animate-[fadeIn_220ms_ease-out_forwards] flex flex-col gap-3"
           >
-            <Card padding="none" className="p-5">
+            <Card
+              padding="none"
+              // Same light-shadow override used by PrintCards / PrinterPanel /
+              // SetupPanel, so every card in the app reads with the same
+              // weight. The `!` is what lets this override Card's own default
+              // shadow without touching Card.tsx.
+              className="
+                p-5
+                !shadow-[0_1px_3px_rgba(15,23,42,0.03)]
+                hover:!shadow-[0_2px_6px_rgba(15,23,42,0.05)]
+              "
+            >
               <ActionButtons
                 connecting={connecting}
                 refreshing={refreshing}

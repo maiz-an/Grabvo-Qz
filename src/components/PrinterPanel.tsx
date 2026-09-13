@@ -4,6 +4,15 @@ import type { PrinterKind } from "@/lib/storage";
 import { LoadingNote, SkeletonBar } from "./ui";
 import Card from "./Card";
 
+/**
+ * The base Card's shadow is tuned for the admin dashboard's dense layout.
+ * On this single-column print app the panels should read lighter — same
+ * override the print cards use, applied to every Card in this file so the
+ * Printers tab matches the Print tab visually.
+ */
+const CARD_CLASS =
+  "!shadow-[0_1px_3px_rgba(15,23,42,0.03)] hover:!shadow-[0_2px_6px_rgba(15,23,42,0.05)]";
+
 interface Props {
   status: QzStatus;
   printers: string[];
@@ -24,7 +33,10 @@ export function PrinterPanel({
   /* ---------- loading ---------- */
   if (status === "connecting" || status === "idle") {
     return (
-      <Card padding="none" className="flex flex-col gap-4 p-6">
+      <Card
+        padding="none"
+        className={`flex flex-col gap-4 p-6 ${CARD_CLASS}`}
+      >
         <LoadingNote />
         <div className="flex flex-col gap-4">
           <SkeletonRow />
@@ -38,7 +50,10 @@ export function PrinterPanel({
   if (status === "error" || printers.length === 0) {
     const isNotRunning = /not running/i.test(errorMessage);
     return (
-      <Card padding="none" className="flex flex-col gap-3 p-6">
+      <Card
+        padding="none"
+        className={`flex flex-col gap-3 p-6 ${CARD_CLASS}`}
+      >
         <div className="flex items-start gap-3 text-[13px] leading-relaxed text-slate-500">
           <span className="flex h-9 w-9 flex-none items-center justify-center rounded-2xl bg-amber-50 text-amber-500">
             <i className="fa-solid fa-circle-exclamation" aria-hidden="true" />
@@ -72,9 +87,11 @@ export function PrinterPanel({
 
   /* ---------- dropdowns ---------- */
   return (
-    <Card padding="none" className="flex flex-col gap-4 p-6">
-      {/* Moved here from the old Setup tab — this is where users
-          actually pick printers, so it belongs on this panel. */}
+    <Card
+      padding="none"
+      className={`flex flex-col gap-4 p-6 ${CARD_CLASS}`}
+    >
+      {/* Saved-printer reminder */}
       <div className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3.5 text-[12.5px] leading-relaxed text-slate-500">
         <span className="flex h-8 w-8 flex-none items-center justify-center rounded-2xl bg-white text-violet-600 ring-1 ring-slate-200">
           <i className="fa-solid fa-floppy-disk" aria-hidden="true" />

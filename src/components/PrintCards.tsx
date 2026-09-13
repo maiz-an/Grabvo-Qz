@@ -32,7 +32,12 @@ function PrintCard({
 }: PrintCardProps) {
   const [printing, setPrinting] = useState(false);
 
+  // A print action needs a printer. Preview does not — you can always
+  // inspect the layout of a receipt/ticket before one is assigned.
+  const hasPrinter = Boolean(printer);
+
   const handlePrint = async () => {
+    if (!hasPrinter) return;
     setPrinting(true);
     try {
       await onPrint();
@@ -42,7 +47,19 @@ function PrintCard({
   };
 
   return (
-    <Card padding="none" className="flex flex-col gap-3 p-5">
+    <Card
+      padding="none"
+      // The default Card shadow is tuned for the admin dashboard's dense
+      // page. On this single-column print app there are only 4 of these
+      // on screen, so the same shadow reads a touch heavy. This scopes a
+      // lighter lift to just these cards — no change to any other Card
+      // in the app.
+      className="
+        flex flex-col gap-3 p-5
+        !shadow-[0_1px_3px_rgba(15,23,42,0.03)]
+        hover:!shadow-[0_2px_6px_rgba(15,23,42,0.05)]
+      "
+    >
       <div className="flex items-center justify-between gap-2">
         <span className="text-[13px] font-bold text-slate-900">{title}</span>
         <span className="rounded-full bg-violet-50 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-violet-600">
@@ -53,10 +70,10 @@ function PrintCard({
       <div
         className={
           "flex min-h-[44px] items-center break-all rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-[12.5px] font-medium leading-snug " +
-          (printer ? "text-slate-900" : "italic text-slate-400")
+          (hasPrinter ? "text-slate-900" : "italic text-slate-400")
         }
       >
-        {printer || "— no printer assigned —"}
+        {hasPrinter ? printer : "— no printer assigned —"}
       </div>
 
       <div className="flex gap-2">
@@ -75,11 +92,20 @@ function PrintCard({
           className="flex-1"
           loading={printing}
           onClick={handlePrint}
+          disabled={!hasPrinter}
           icon={<i className="fa-solid fa-print" aria-hidden="true" />}
         >
           Print
         </Button>
       </div>
+
+      {!hasPrinter && (
+        <p className="text-center text-[11px] text-slate-400">
+          Assign a printer in the{" "}
+          <b className="font-semibold text-slate-500">Printers</b> tab to
+          enable printing.
+        </p>
+      )}
     </Card>
   );
 }

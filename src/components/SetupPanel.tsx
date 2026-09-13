@@ -4,6 +4,14 @@ import Card from "./Card";
 type OS = "windows" | "mac" | "other";
 
 /**
+ * The base Card's shadow is tuned for the admin dashboard's dense layout.
+ * On this single-column print app the panels should read lighter — same
+ * override the print cards use.
+ */
+const CARD_CLASS =
+  "!shadow-[0_1px_3px_rgba(15,23,42,0.03)] hover:!shadow-[0_2px_6px_rgba(15,23,42,0.05)]";
+
+/**
  * Detects the user's operating system from the User-Agent + platform.
  * Falls back to "other" if we can't tell — never throws, always returns
  * a value, so the UI always has something to render.
@@ -153,7 +161,7 @@ export function SetupPanel() {
   };
 
   return (
-    <Card padding="none" className="px-6 py-5">
+    <Card padding="none" className={`px-6 py-5 ${CARD_CLASS}`}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-[13px] font-bold text-slate-900">
           <i
