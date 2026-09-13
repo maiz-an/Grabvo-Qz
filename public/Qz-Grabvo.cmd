@@ -3,12 +3,11 @@ setlocal EnableExtensions EnableDelayedExpansion
 title Grabvo - QZ Tray Setup
 
 :: =========================================================================
-::   Grabvo QZ Tray Auto-Installer (v6)
+::   Grabvo QZ Tray Auto-Installer (v7)
 ::   ------------------------------------------------------------------------
-::   Installs QZ Tray and registers the Grabvo certificate via
-::   qz-tray-console --whitelist (writes to allowed.dat, the source of
-::   truth QZ Tray and Site Manager both read from), with override.crt
-::   copies as redundant backups.
+::   Installs QZ Tray and registers the Grabvo certificate.
+::   Tries multiple whitelist invocation styles and verifies each by
+::   checking whether allowed.dat actually grew.
 ::   All output is pure ASCII - no chcp needed, no encoding issues.
 :: =========================================================================
 
@@ -150,6 +149,7 @@ call :header "4/8" "Installing QZ Tray"
 set "QZ_OK=0"
 
 echo   !SL!Setting up QZ Tray... this may take a minute
+echo.
 powershell -NoProfile -Command "$env:qz_print_silent='1'; Start-Process -FilePath '!QZ_EXE!' -ArgumentList '/S' -WindowStyle Hidden -Wait" >nul 2>&1
 
 set /a POLL=0
@@ -214,8 +214,8 @@ call :header "6/8" "Registering the certificate with QZ Tray"
 set "REGISTER_OK=0"
 set "USER_ALLOWED=%APPDATA%\qz\allowed.dat"
 
-:: Snapshot allowed.dat BEFORE we run the whitelist, so we can prove the
-:: command actually wrote to it. If the file doesn't exist yet, size is 0.
+:: Snapshot allowed.dat BEFORE we run anything, so we can prove a
+:: whitelist command actually wrote to it.
 set "ALLOWED_BEFORE=0"
 if exist "%USER_ALLOWED%" (
     for %%F in ("%USER_ALLOWED%") do set "ALLOWED_BEFORE=%%~zF"
@@ -224,37 +224,61 @@ if exist "%USER_ALLOWED%" (
 :: -------------------------------------------------------------------
 :: 6a - PRIMARY: qz-tray-console --whitelist
 :: -------------------------------------------------------------------
-:: The argument is passed as `--whitelist="<path>"` - using the equals
-:: form AND quoting the value, so paths with spaces ("C:\Program Files"
-:: etc.) are passed as a single token. The direct call (no `start`,
-:: no PowerShell Start-Process) keeps us in the same console and lets us
-:: read the real exit code.
+:: Try three argument forms in order. The equals form (`--whitelist=`)
+:: is the one that triggers "The system cannot find the drive specified"
+:: on some Launch4j builds, so it's tried LAST.
 if exist "%QZ_CONSOLE%" (
     echo   !SL!Registering with QZ Tray...
 
-    "%QZ_CONSOLE%" --whitelist="%CERT_FILE%" >nul 2>&1
-
-    :: The Launch4j wrapper sometimes returns before its Java child has
-    :: finished writing allowed.dat, so give it a moment.
+    :: --- Attempt 1: space-separated, full path quoted ---
+    echo.
+    "%QZ_CONSOLE%" --whitelist "%CERT_FILE%" >nul 2>&1
+    echo.
     timeout /t 2 /nobreak >nul 2>&1
-
-    :: Sweep any lingering console process.
     taskkill /IM "qz-tray-console.exe" /F >nul 2>&1
 
-    :: Verify allowed.dat grew (any new fingerprint makes it larger).
     set "ALLOWED_AFTER=0"
     if exist "%USER_ALLOWED%" (
         for %%F in ("%USER_ALLOWED%") do set "ALLOWED_AFTER=%%~zF"
     )
+    if !ALLOWED_AFTER! GTR !ALLOWED_BEFORE! set "REGISTER_OK=1"
 
-    if !ALLOWED_AFTER! GTR !ALLOWED_BEFORE! (
-        set "REGISTER_OK=1"
+    :: --- Attempt 2: cwd = cert folder, pass bare filename ---
+    if "!REGISTER_OK!"=="0" (
+        pushd "%TEMP_DIR%" >nul 2>&1
+        "%QZ_CONSOLE%" --whitelist "%CERT_FILENAME%" >nul 2>&1
+        popd >nul 2>&1
+        timeout /t 2 /nobreak >nul 2>&1
+        taskkill /IM "qz-tray-console.exe" /F >nul 2>&1
+
+        set "ALLOWED_AFTER=0"
+        if exist "%USER_ALLOWED%" (
+            for %%F in ("%USER_ALLOWED%") do set "ALLOWED_AFTER=%%~zF"
+        )
+        if !ALLOWED_AFTER! GTR !ALLOWED_BEFORE! set "REGISTER_OK=1"
+    )
+
+    :: --- Attempt 3: equals form (last resort) ---
+    if "!REGISTER_OK!"=="0" (
+        "%QZ_CONSOLE%" --whitelist="%CERT_FILE%" >nul 2>&1
+        timeout /t 2 /nobreak >nul 2>&1
+        taskkill /IM "qz-tray-console.exe" /F >nul 2>&1
+
+        set "ALLOWED_AFTER=0"
+        if exist "%USER_ALLOWED%" (
+            for %%F in ("%USER_ALLOWED%") do set "ALLOWED_AFTER=%%~zF"
+        )
+        if !ALLOWED_AFTER! GTR !ALLOWED_BEFORE! set "REGISTER_OK=1"
+    )
+
+    :: Report
+    if "!REGISTER_OK!"=="1" (
         call :ok "Certificate registered with QZ Tray"
     ) else (
-        call :warn "Whitelist command didn't change allowed.dat - trying backups"
+        call :warn "Whitelist didn't change allowed.dat - using backups"
     )
 ) else (
-    call :warn "qz-tray-console.exe not found - trying backups"
+    call :warn "qz-tray-console.exe not found - using backups"
 )
 
 :: -------------------------------------------------------------------
@@ -325,9 +349,6 @@ call :header "8/8" "Starting QZ Tray"
 powershell -NoProfile -Command "!PROC_KILL!" >nul 2>&1
 timeout /t 2 /nobreak >nul 2>&1
 
-:: Use cmd's built-in `start ""` for the launch, NOT PowerShell's
-:: Start-Process (which drops quotes and truncates paths with spaces).
-:: javaw.exe is GUI-subsystem so `start` opens no console for it.
 set "LAUNCHED=0"
 if exist "%QZ_JAVA%" (
     if exist "%QZ_JAR%" (
@@ -402,7 +423,7 @@ if !DL_ATTEMPT! lss %MAX_RETRIES% (
 exit /b 1
 
 :: =========================================================================
-::   UI (pure ASCII - no chcp needed, no encoding issues)
+::   UI (pure ASCII)
 :: =========================================================================
 
 :banner
@@ -436,8 +457,15 @@ exit /b 0
 echo   %GR%%B%[OK]%R%    %WH%%~1%R%
 exit /b 0
 
+:: The DisableDelayedExpansion below is what fixes `[!!]` rendering as `[]`.
+:: With EnableDelayedExpansion on (which the rest of the script needs for
+:: the !VAR! syntax), a literal `!` inside an echo is parsed as a variable
+:: delimiter. Wrapping just this echo keeps the badge literal without
+:: turning off delayed expansion for the whole script.
 :warn
+setlocal DisableDelayedExpansion
 echo   %AM%%B%[!!]%R%    %AM%%~1%R%
+endlocal
 exit /b 0
 
 :fail
@@ -506,11 +534,6 @@ exit /b 0
 :cleanup
 cd /d "%TEMP%" >nul 2>&1
 rd /s /q "%TEMP_DIR%" >nul 2>&1
-echo.
-echo   ============================================================
-echo    Press any key to close this window.
-echo   ============================================================
-echo.
 pause
 endlocal
 exit /b 0
