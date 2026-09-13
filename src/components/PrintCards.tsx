@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "./ui";
+import Card from "./Card";
 
 interface PrintCardsProps {
   receiptPrinter: string;
@@ -22,7 +23,13 @@ interface PrintCardProps {
   onPrint: () => Promise<void>;
 }
 
-function PrintCard({ title, badge, printer, onPreview, onPrint }: PrintCardProps) {
+function PrintCard({
+  title,
+  badge,
+  printer,
+  onPreview,
+  onPrint,
+}: PrintCardProps) {
   const [printing, setPrinting] = useState(false);
 
   const handlePrint = async () => {
@@ -35,17 +42,17 @@ function PrintCard({ title, badge, printer, onPreview, onPrint }: PrintCardProps
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 px-5 shadow-sm">
-      <div className="flex items-center justify-between">
+    <Card padding="none" className="flex flex-col gap-3 p-5">
+      <div className="flex items-center justify-between gap-2">
         <span className="text-[13px] font-bold text-slate-900">{title}</span>
-        <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-600">
+        <span className="rounded-full bg-violet-50 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-violet-600">
           {badge}
         </span>
       </div>
 
       <div
         className={
-          "flex min-h-[36px] items-center break-all rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[12.5px] font-medium leading-snug " +
+          "flex min-h-[44px] items-center break-all rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-[12.5px] font-medium leading-snug " +
           (printer ? "text-slate-900" : "italic text-slate-400")
         }
       >
@@ -53,21 +60,27 @@ function PrintCard({ title, badge, printer, onPreview, onPrint }: PrintCardProps
       </div>
 
       <div className="flex gap-2">
-        <Button className="flex-1" onClick={onPreview}>
-          <i className="fa-solid fa-eye" aria-hidden="true" />
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1"
+          onClick={onPreview}
+          icon={<i className="fa-solid fa-eye" aria-hidden="true" />}
+        >
           Preview
         </Button>
         <Button
           variant="primary"
+          size="sm"
           className="flex-1"
           loading={printing}
           onClick={handlePrint}
+          icon={<i className="fa-solid fa-print" aria-hidden="true" />}
         >
-          <i className="fa-solid fa-print" aria-hidden="true" />
           Print
         </Button>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -81,7 +94,7 @@ export function PrintCards({
   onPrintReceipt,
   onPrintBill,
   onPrintTicket,
-  onPrintCancellation
+  onPrintCancellation,
 }: PrintCardsProps) {
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

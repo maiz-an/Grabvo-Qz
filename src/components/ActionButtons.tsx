@@ -8,7 +8,12 @@ interface Props {
   onRefresh: () => void;
 }
 
-export function ActionButtons({ connecting, refreshing, onConnect, onRefresh }: Props) {
+export function ActionButtons({
+  connecting,
+  refreshing,
+  onConnect,
+  onRefresh,
+}: Props) {
   return (
     <div className="my-6 mb-[22px] flex flex-wrap gap-2.5">
       <Button variant="primary" loading={connecting} onClick={onConnect}>

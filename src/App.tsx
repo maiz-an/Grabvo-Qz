@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 
 import { Background } from "@/components/Background";
-import { GitHubLink } from "@/components/GitHubLink";
 import { Header } from "@/components/Header";
 import { ActionButtons } from "@/components/ActionButtons";
 import { PrinterPanel } from "@/components/PrinterPanel";
@@ -10,7 +9,7 @@ import { PreviewModal, type PreviewKind } from "@/components/PreviewModal";
 import { InfoPanel } from "@/components/InfoPanel";
 import { Footer } from "@/components/Footer";
 import { Toasts } from "@/components/Toasts";
-import { SectionHeading } from "@/components/ui";
+import { SplashScreen } from "@/components/SplashScreen";
 
 import { receiptConfig } from "@/config/receipt-config";
 import { buildReceiptHtml } from "@/templates/receipt-template";
@@ -21,10 +20,24 @@ import { useToast } from "@/hooks/useToast";
 import { useQz } from "@/hooks/useQz";
 import { readPrinter, writePrinter, type PrinterKind } from "@/lib/storage";
 
+type TabId = "print" | "printers" | "setup";
+
+const TABS: { id: TabId; label: string; icon: string }[] = [
+  { id: "print", label: "Print", icon: "fa-print" },
+  { id: "printers", label: "Printers", icon: "fa-plug-circle-bolt" },
+  { id: "setup", label: "Setup", icon: "fa-shield-halved" },
+];
+
 export default function App() {
   const { toasts, showToast } = useToast();
   const { status, printers, errorMessage, connect, refreshPrinters, print } =
     useQz(showToast);
+
+  /* ---------- splash (first paint only) ---------- */
+  const [splashDone, setSplashDone] = useState(false);
+
+  /* ---------- tab state ---------- */
+  const [activeTab, setActiveTab] = useState<TabId>("print");
 
   /* ---------- persisted printer selections ---------- */
   const [receiptPrinter, setReceiptPrinter] = useState<string>(() =>
@@ -86,7 +99,7 @@ export default function App() {
       printerName: receiptPrinter,
       html,
       printer: receiptConfig.printer,
-      label: "checkout receipt"
+      label: "checkout receipt",
     });
   }, [print, receiptPrinter]);
 
@@ -96,7 +109,7 @@ export default function App() {
       printerName: receiptPrinter,
       html,
       printer: receiptConfig.printer,
-      label: "order receipt"
+      label: "order receipt",
     });
   }, [print, receiptPrinter]);
 
@@ -106,7 +119,7 @@ export default function App() {
       printerName: ticketPrinter,
       html,
       printer: receiptConfig.printer,
-      label: "preparation receipt"
+      label: "preparation receipt",
     });
   }, [print, ticketPrinter]);
 
@@ -116,7 +129,7 @@ export default function App() {
       printerName: ticketPrinter,
       html,
       printer: receiptConfig.printer,
-      label: "cancellation receipt"
+      label: "cancellation receipt",
     });
   }, [print, ticketPrinter]);
 
@@ -138,6 +151,16 @@ export default function App() {
     return () => document.removeEventListener("keydown", onKey);
   }, [previewKind, closePreview]);
 
+  /* ---------- scroll reset on tab change ----------
+     The whole page scrolls together (header included) — so when the user
+     switches tabs while scrolled down, hard-jump back to the top. That
+     way the header is always the first thing visible after a tab switch,
+     without ever pinning anything. `behavior: "instant"` forces a hard
+     jump regardless of any global scroll-behavior setting. */
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }, [activeTab]);
+
   /* ---------- generate the preview HTML on demand ---------- */
   const previewHtml = (() => {
     if (!previewKind) return "";
@@ -153,8 +176,13 @@ export default function App() {
     return buildTicketHtml();
   })();
 
+  /* ---------- iOS segmented-control index ---------- */
+  const activeIndex = TABS.findIndex((t) => t.id === activeTab);
+
   return (
     <>
+      {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
+
       <Background />
       <Toasts toasts={toasts} />
 
@@ -165,44 +193,106 @@ export default function App() {
         onClose={closePreview}
       />
 
-      <div className="relative z-[2] mx-auto max-w-[760px] px-5 pb-20 pt-14">
-        <GitHubLink />
-
+      {/* ==================================================================
+          ONE SCROLL CONTAINER — header, tab bar, and tab panels all live
+          in this single column. Nothing is sticky. The whole page scrolls
+          as one unit, header included, exactly like the original layout.
+          ================================================================== */}
+      <div className="relative z-[2] mx-auto max-w-[820px] px-4 pb-16 pt-12 sm:px-6 sm:pt-16">
         <Header />
 
-        <ActionButtons
-          connecting={connecting}
-          refreshing={refreshing}
-          onConnect={handleConnect}
-          onRefresh={handleRefresh}
-        />
+        {/* iOS-style segmented control */}
+        <div
+          className="relative mb-6 flex rounded-2xl bg-slate-100 p-1.5"
+          role="tablist"
+          aria-label="App sections"
+        >
+          {/* Sliding pill — sits behind the buttons (z-0), buttons sit at z-10 */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1.5 bottom-1.5 left-1.5 z-0 rounded-xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.08),0_2px_6px_rgba(15,23,42,0.06)]"
+            style={{
+              width: `calc((100% - 0.75rem) / ${TABS.length})`,
+              transform: `translateX(${activeIndex * 100}%)`,
+              transition: "transform 340ms cubic-bezier(0.32, 0.72, 0, 1)",
+            }}
+          />
 
-        <SectionHeading>Printers</SectionHeading>
-        <PrinterPanel
-          status={status}
-          printers={printers}
-          errorMessage={errorMessage}
-          receiptPrinter={receiptPrinter}
-          ticketPrinter={ticketPrinter}
-          onSelect={handlePrinterSelect}
-        />
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative z-10 inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-bold transition-colors duration-300 active:scale-[0.97] ${
+                  isActive
+                    ? "text-slate-900"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                <i
+                  className={`fa-solid ${tab.icon} text-[12px] transition-colors duration-300 ${
+                    isActive ? "text-violet-600" : "text-slate-400"
+                  }`}
+                  aria-hidden="true"
+                />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
 
-        <SectionHeading>Print</SectionHeading>
-        <PrintCards
-          receiptPrinter={receiptPrinter}
-          ticketPrinter={ticketPrinter}
-          onPreviewReceipt={() => handlePreview("receipt")}
-          onPreviewBill={() => handlePreview("bill")}
-          onPreviewTicket={() => handlePreview("ticket")}
-          onPreviewCancellation={() => handlePreview("cancellation")}
-          onPrintReceipt={handlePrintReceipt}
-          onPrintBill={handlePrintBill}
-          onPrintTicket={handlePrintTicket}
-          onPrintCancellation={handlePrintCancellation}
-        />
+        {/* ---------------------------------------------
+            Tab panels — one visible at a time.
+            --------------------------------------------- */}
+        {activeTab === "print" && (
+          <div key="print" className="animate-[fadeIn_220ms_ease-out_forwards]">
+            <PrintCards
+              receiptPrinter={receiptPrinter}
+              ticketPrinter={ticketPrinter}
+              onPreviewReceipt={() => handlePreview("receipt")}
+              onPreviewBill={() => handlePreview("bill")}
+              onPreviewTicket={() => handlePreview("ticket")}
+              onPreviewCancellation={() => handlePreview("cancellation")}
+              onPrintReceipt={handlePrintReceipt}
+              onPrintBill={handlePrintBill}
+              onPrintTicket={handlePrintTicket}
+              onPrintCancellation={handlePrintCancellation}
+            />
+          </div>
+        )}
 
-        <InfoPanel />
-        <Footer />
+        {activeTab === "printers" && (
+          <div
+            key="printers"
+            className="animate-[fadeIn_220ms_ease-out_forwards]"
+          >
+            <ActionButtons
+              connecting={connecting}
+              refreshing={refreshing}
+              onConnect={handleConnect}
+              onRefresh={handleRefresh}
+            />
+            <PrinterPanel
+              status={status}
+              printers={printers}
+              errorMessage={errorMessage}
+              receiptPrinter={receiptPrinter}
+              ticketPrinter={ticketPrinter}
+              onSelect={handlePrinterSelect}
+            />
+          </div>
+        )}
+
+        {activeTab === "setup" && (
+          <div key="setup" className="animate-[fadeIn_220ms_ease-out_forwards]">
+            <InfoPanel />
+            <Footer />
+          </div>
+        )}
       </div>
     </>
   );

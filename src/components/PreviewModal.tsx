@@ -148,7 +148,7 @@ export function PreviewModal({
     receipt: "Checkout Receipt Preview",
     bill: "Order Receipt Preview",
     ticket: "Preparation Receipt Preview",
-    cancellation: "Cancellation Receipt Preview"
+    cancellation: "Cancellation Receipt Preview",
   };
   const title = titles[kind];
 
@@ -165,8 +165,9 @@ export function PreviewModal({
         items-center
         justify-center
         bg-slate-900/60
-        p-6
+        p-4
         backdrop-blur-sm
+        sm:p-6
       "
       onClick={(event) => {
         /*
@@ -179,7 +180,7 @@ export function PreviewModal({
       }}
     >
       {/* ============================================================
-          MODAL CARD
+          MODAL CARD — matches Grabvo's Card (rounded-[2rem])
           ============================================================ */}
       <div
         className="
@@ -188,9 +189,9 @@ export function PreviewModal({
           w-[min(520px,100%)]
           flex-col
           overflow-hidden
-          rounded-2xl
+          rounded-[2rem]
           border
-          border-border
+          border-slate-100
           bg-white
           shadow-[0_24px_80px_rgba(15,23,42,.35)]
         "
@@ -205,26 +206,24 @@ export function PreviewModal({
             items-center
             justify-between
             border-b
-            border-border
-            bg-surface
-            px-5
-            py-3.5
+            border-slate-100
+            bg-slate-50
+            px-6
+            py-4
             text-[13px]
-            font-semibold
-            text-ink
+            font-bold
+            text-slate-900
           "
         >
           <span className="flex items-center gap-2">
-          
-          <span className="h-1.5 w-1.5 rounded-full bg-violet-600" />
+            <span className="h-1.5 w-1.5 rounded-full bg-violet-600" />
             {title}
           </span>
 
-          // with:
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[12px] font-bold text-slate-500 transition hover:border-violet-200 hover:text-violet-600"
+            className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-bold text-slate-500 transition-all duration-300 hover:border-violet-200 hover:text-violet-600 focus:outline-none focus:ring-2 focus:ring-violet-500"
           >
             <i className="fa-solid fa-xmark" aria-hidden="true" /> Close
           </button>
@@ -252,7 +251,7 @@ export function PreviewModal({
           }}
         >
           {/* ========================================================
-              LOADING PLACEHOLDER
+              LOADING PLACEHOLDER — uses shared shimmer wash
               ======================================================== */}
           <div
             className={
@@ -266,7 +265,7 @@ export function PreviewModal({
                 h-[520px]
                 flex-col
                 gap-3
-                rounded-xl
+                rounded-2xl
                 bg-white
                 p-5
                 shadow-[0_18px_50px_rgba(15,23,42,.18)]
@@ -277,23 +276,23 @@ export function PreviewModal({
                 maxWidth: "100%",
               }}
             >
-              <div className="h-3 w-2/3 rounded bg-gray-200" />
-              <div className="h-2 w-full rounded bg-gray-100" />
-              <div className="h-2 w-5/6 rounded bg-gray-100" />
-              <div className="h-2 w-full rounded bg-gray-100" />
-              <div className="h-2 w-4/5 rounded bg-gray-100" />
+              <div className="skeleton-shimmer h-3 w-2/3 rounded-md" />
+              <div className="skeleton-shimmer h-2 w-full rounded-md" />
+              <div className="skeleton-shimmer h-2 w-5/6 rounded-md" />
+              <div className="skeleton-shimmer h-2 w-full rounded-md" />
+              <div className="skeleton-shimmer h-2 w-4/5 rounded-md" />
 
-              <div className="my-2 h-px w-full bg-gray-200" />
+              <div className="my-2 h-px w-full bg-slate-100" />
 
-              <div className="h-2 w-full rounded bg-gray-100" />
-              <div className="h-2 w-full rounded bg-gray-100" />
-              <div className="h-2 w-3/4 rounded bg-gray-100" />
+              <div className="skeleton-shimmer h-2 w-full rounded-md" />
+              <div className="skeleton-shimmer h-2 w-full rounded-md" />
+              <div className="skeleton-shimmer h-2 w-3/4 rounded-md" />
 
-              <div className="mt-2 h-8 w-full rounded bg-gray-100" />
+              <div className="skeleton-shimmer mt-2 h-8 w-full rounded-lg" />
 
-              <div className="h-2 w-full rounded bg-gray-100" />
-              <div className="h-2 w-5/6 rounded bg-gray-100" />
-              <div className="h-2 w-2/3 rounded bg-gray-100" />
+              <div className="skeleton-shimmer h-2 w-full rounded-md" />
+              <div className="skeleton-shimmer h-2 w-5/6 rounded-md" />
+              <div className="skeleton-shimmer h-2 w-2/3 rounded-md" />
             </div>
           </div>
 
@@ -309,9 +308,9 @@ export function PreviewModal({
               mx-auto
               block
               flex-none
-              rounded-xl
+              rounded-2xl
               bg-white
-              shadow-[0_18px_50px_rgba(15,23,42,.18)]
+              shadow-[0_3px_8px_rgba(15,23,42,.18)]
             "
             style={{
               width: `${widthMm}mm`,
