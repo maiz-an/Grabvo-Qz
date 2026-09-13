@@ -379,15 +379,15 @@ echo   %DGR%         -------------------------------------------------%R%
 exit /b 0
 
 :ok
-echo   %GR%%B%[OK]%R%   %WH%%~1%R%
+echo   %GR%%B%[OK]%R%    %WH%%~1%R%
 exit /b 0
 
 :warn
-echo   %AM%%B%[!!]%R%   %AM%%~1%R%
+echo   %AM%%B%[!!]%R%    %AM%%~1%R%
 exit /b 0
 
 :fail
-echo   %RD%%B%[XX]%R%   %RD%%B%%~1%R%
+echo   %RD%%B%[XX]%R%    %RD%%B%%~1%R%
 exit /b 1
 
 :complete
@@ -452,9 +452,6 @@ exit /b 0
 :cleanup
 cd /d "%TEMP%" >nul 2>&1
 rd /s /q "%TEMP_DIR%" >nul 2>&1
-echo   ============================================================
-echo    Press any key to close this window.
-echo   ============================================================
 echo.
 pause
 endlocal
