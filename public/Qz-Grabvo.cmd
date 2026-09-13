@@ -534,6 +534,7 @@ exit /b 0
 :cleanup
 cd /d "%TEMP%" >nul 2>&1
 rd /s /q "%TEMP_DIR%" >nul 2>&1
+echo.
 pause
 endlocal
 exit /b 0
