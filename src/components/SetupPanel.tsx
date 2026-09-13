@@ -153,27 +153,25 @@ export function SetupPanel() {
   };
 
   return (
-    <div className="mt-8 flex flex-col gap-4">
-      <Card padding="none" className="px-6 py-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-[13px] font-bold text-slate-900">
-            <i
-              className="fa-solid fa-shield-halved text-violet-600"
-              aria-hidden="true"
-            />
-            Enable silent printing
-          </div>
-
-          <div className="flex items-center gap-2">
-            <OsSwitcher value={os} onChange={handleSwitch} />
-          </div>
+    <Card padding="none" className="px-6 py-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-[13px] font-bold text-slate-900">
+          <i
+            className="fa-solid fa-shield-halved text-violet-600"
+            aria-hidden="true"
+          />
+          Enable silent printing
         </div>
 
-        {os === "windows" && <WindowsSetup />}
-        {os === "mac" && <MacSetup />}
-        {os === "other" && <OtherSetup />}
-      </Card>
-    </div>
+        <div className="flex items-center gap-2">
+          <OsSwitcher value={os} onChange={handleSwitch} />
+        </div>
+      </div>
+
+      {os === "windows" && <WindowsSetup />}
+      {os === "mac" && <MacSetup />}
+      {os === "other" && <OtherSetup />}
+    </Card>
   );
 }
 

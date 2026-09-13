@@ -9,6 +9,7 @@ import { PreviewModal, type PreviewKind } from "@/components/PreviewModal";
 import { SetupPanel } from "@/components/SetupPanel";
 import { Toasts } from "@/components/Toasts";
 import { SplashScreen } from "@/components/SplashScreen";
+import Card from "@/components/Card";
 
 import { receiptConfig } from "@/config/receipt-config";
 import { buildReceiptHtml } from "@/templates/receipt-template";
@@ -26,6 +27,8 @@ const TABS: { id: TabId; label: string; icon: string }[] = [
   { id: "printers", label: "Printers", icon: "fa-plug-circle-bolt" },
   { id: "setup", label: "Setup", icon: "fa-shield-halved" },
 ];
+
+const SUPPORT_EMAIL = "support@grabvo.app";
 
 export default function App() {
   const { toasts, showToast } = useToast();
@@ -246,9 +249,14 @@ export default function App() {
 
         {/* ---------------------------------------------
             Tab panels — one visible at a time.
+            Each panel starts at the same Y offset (0), with the same
+            internal vertical rhythm, so nothing shifts the header.
             --------------------------------------------- */}
         {activeTab === "print" && (
-          <div key="print" className="animate-[fadeIn_220ms_ease-out_forwards]">
+          <div
+            key="print"
+            className="animate-[fadeIn_220ms_ease-out_forwards] flex flex-col gap-3"
+          >
             <PrintCards
               receiptPrinter={receiptPrinter}
               ticketPrinter={ticketPrinter}
@@ -267,14 +275,16 @@ export default function App() {
         {activeTab === "printers" && (
           <div
             key="printers"
-            className="animate-[fadeIn_220ms_ease-out_forwards]"
+            className="animate-[fadeIn_220ms_ease-out_forwards] flex flex-col gap-3"
           >
-            <ActionButtons
-              connecting={connecting}
-              refreshing={refreshing}
-              onConnect={handleConnect}
-              onRefresh={handleRefresh}
-            />
+            <Card padding="none" className="p-5">
+              <ActionButtons
+                connecting={connecting}
+                refreshing={refreshing}
+                onConnect={handleConnect}
+                onRefresh={handleRefresh}
+              />
+            </Card>
             <PrinterPanel
               status={status}
               printers={printers}
@@ -287,10 +297,39 @@ export default function App() {
         )}
 
         {activeTab === "setup" && (
-          <div key="setup" className="animate-[fadeIn_220ms_ease-out_forwards]">
+          <div
+            key="setup"
+            className="animate-[fadeIn_220ms_ease-out_forwards] flex flex-col gap-3"
+          >
             <SetupPanel />
           </div>
         )}
+
+        {/* ---------------------------------------------
+            Global footer — always visible on every tab.
+            A quiet support line, matching the app's overall tone.
+            --------------------------------------------- */}
+        <footer className="mt-10 flex flex-col items-center gap-2 text-center">
+          <div className="flex items-center gap-2 text-[11.5px] leading-relaxed text-slate-400">
+            <i
+              className="fa-solid fa-circle-question text-violet-400"
+              aria-hidden="true"
+            />
+            <span>
+              Need help? Reach us at{" "}
+              <a
+                href={`mailto:${SUPPORT_EMAIL}`}
+                className="font-semibold text-violet-600 underline decoration-violet-200 underline-offset-2 transition hover:decoration-violet-500"
+              >
+                {SUPPORT_EMAIL}
+              </a>
+            </span>
+          </div>
+
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-300">
+            Grabvo · QZ Print Setup
+          </p>
+        </footer>
       </div>
     </>
   );

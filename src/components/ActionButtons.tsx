@@ -15,7 +15,7 @@ export function ActionButtons({
   onRefresh,
 }: Props) {
   return (
-    <div className="my-6 mb-[22px] flex flex-wrap gap-2.5">
+    <div className="flex flex-wrap gap-2.5">
       <Button variant="primary" loading={connecting} onClick={onConnect}>
         <i className="fa-solid fa-plug-circle-bolt" aria-hidden="true" />
         Reconnect

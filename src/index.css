@@ -35,6 +35,46 @@ body {
 }
 
 /* ================================================================
+   GLOBAL SCROLLBAR HIDING
+   Everything still scrolls — mouse wheel, touch, keyboard, programmatic
+   — the scrollbar chrome just isn't painted. Applies to every element,
+   including the page, inner scroll areas, dropdowns, and textareas.
+
+   Firefox  : scrollbar-width: none
+   IE / Edge: -ms-overflow-style: none
+   WebKit   : ::-webkit-scrollbar { display: none }
+   ================================================================ */
+*,
+*::before,
+*::after {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* Belt-and-braces — apply to the page roots too, in case a browser
+   ignores the universal selector for the document scroll container. */
+html,
+body,
+#root {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+#root::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* ================================================================
    Grabvo brand logo typography
    ================================================================ */
 .logo-font {
@@ -95,12 +135,6 @@ body {
 
 /* ================================================================
    Ambient floating background blobs — toned WAY down.
-   Previously: violet 0.35 + blue 0.30 + violet 0.28 opacities at 40/30/25
-   → too saturated, too much colour in the viewport.
-
-   Now: mostly a single muted violet wash, with a barely-there indigo
-   accent. Peak opacity is 0.18 so the page reads as "warm off-white with
-   a hint of violet" instead of "purple app".
    ================================================================ */
 @keyframes blob1 {
   0%, 100% { transform: translate(0, 0) scale(1); }
@@ -137,15 +171,6 @@ body {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
-}
-
-/* Hide scrollbars in the preview modal while keeping scroll */
-.hide-scrollbar {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
 }
 
 /* Selection tint — matches admin focus treatment */
