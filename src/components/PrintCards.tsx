@@ -73,7 +73,7 @@ function PrintCard({
           (hasPrinter ? "text-slate-900" : "italic text-slate-400")
         }
       >
-        {hasPrinter ? printer : "— no printer assigned —"}
+        {hasPrinter ? printer : "No printer assigned"}
       </div>
 
       <div className="flex gap-2">
