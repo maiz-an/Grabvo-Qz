@@ -244,8 +244,8 @@ echo   %PU%%B%888    888 888     .d888888 888  888 Y88  88P 888  888 %R%
 echo   %PU%%B%Y88b  d88P 888     888  888 888 d88P  Y8bd8P  Y88..88P %R%
 echo   %PU%%B% "Y8888P88 888     "Y888888 88888P"    Y88P    "Y88P"  %R%
 echo.
-echo   %WH%%B%              QZ Tray Uninstaller%R%
-echo   %SL%      Remove QZ Tray + the Grabvo certificate%R%
+echo   %WH%%B%                QZ Tray Uninstaller%R%
+echo   %SL%        Remove QZ Tray + the Grabvo certificate%R%
 echo.
 echo   %RD%%B%============================================================%R%
 echo.
@@ -289,8 +289,8 @@ echo   %PU%%B%888    888 888     .d888888 888  888 Y88  88P 888  888 %R%
 echo   %PU%%B%Y88b  d88P 888     888  888 888 d88P  Y8bd8P  Y88..88P %R%
 echo   %PU%%B% "Y8888P88 888     "Y888888 88888P"    Y88P    "Y88P"  %R%
 echo.
-echo   %GR%%B%              UNINSTALL COMPLETE%R%
-echo   %SL%      QZ Tray has been removed from this computer%R%
+echo   %GR%%B%                 UNINSTALL COMPLETE%R%
+echo   %SL%         QZ Tray has been removed from this computer%R%
 echo.
 echo   %GR%%B%============================================================%R%
 echo.
@@ -317,8 +317,8 @@ echo   %PU%%B%888    888 888     .d888888 888  888 Y88  88P 888  888 %R%
 echo   %PU%%B%Y88b  d88P 888     888  888 888 d88P  Y8bd8P  Y88..88P %R%
 echo   %PU%%B% "Y8888P88 888     "Y888888 88888P"    Y88P    "Y88P"  %R%
 echo.
-echo   %AM%%B%          CLEANUP FINISHED WITH WARNINGS%R%
-echo   %SL%      Some QZ Tray files could not be removed%R%
+echo   %AM%%B%            CLEANUP FINISHED WITH WARNINGS%R%
+echo   %SL%        Some QZ Tray files could not be removed%R%
 echo.
 echo   %AM%%B%============================================================%R%
 echo.
