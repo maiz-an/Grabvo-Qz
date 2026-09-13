@@ -1,0 +1,15 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/*.ts": {
+      "includeFiles": "certs/**"
+    }
+  },
+  "rewrites": [
+    { "source": "/digital-certificate.txt", "destination": "/api/cert" },
+    { "source": "/sign-message",            "destination": "/api/sign" },
+    { "source": "/logo-base64",             "destination": "/api/logo" },
+    { "source": "/(.*)",                    "destination": "/index.html" }
+  ]
+}

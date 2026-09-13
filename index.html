@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- ============================================================
+         Primary meta
+         ============================================================ -->
+    <title>Grabvo Print — Setup &amp; Preview</title>
+    <meta
+      name="description"
+      content="See exactly how your Grabvo receipts and kitchen tickets will print, then set up silent 80mm printing over QZ Tray — signed requests server-side, no exposed keys, no popup after the first handshake."
+    />
+    <meta
+      name="keywords"
+      content="Grabvo, QZ Tray, silent printing, thermal printer, receipt printing, KOT, BOT, POS, 80mm, ESC/POS, signed requests, web printing"
+    />
+    <meta name="author" content="Grabvo" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#7c3aed" />
+    <meta name="color-scheme" content="light" />
+
+    <!-- ============================================================
+         Canonical URL
+         ============================================================ -->
+    <link rel="canonical" href="https://qz.grabvo.app" />
+
+    <!-- ============================================================
+         Open Graph (Facebook, LinkedIn, Discord, Slack, iMessage…)
+         ============================================================ -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Grabvo" />
+    <meta property="og:url" content="https://qz.grabvo.app" />
+    <meta property="og:title" content="Grabvo Print — Setup & Preview" />
+    <meta
+      property="og:description"
+      content="See exactly how your Grabvo receipts and kitchen tickets will print, then set up silent 80mm printing over QZ Tray — no popup after the first handshake."
+    />
+    <meta property="og:image" content="https://qz.grabvo.app/og.png" />
+    <meta property="og:image:alt" content="Grabvo" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- ============================================================
+         Twitter / X card
+         ============================================================ -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Grabvo Print — Setup & Preview" />
+    <meta
+      name="twitter:description"
+      content="See exactly how your Grabvo receipts and kitchen tickets will print, then set up silent 80mm printing over QZ Tray."
+    />
+    <meta name="twitter:image" content="https://qz.grabvo.app/og.png" />
+    <meta name="twitter:image:alt" content="Grabvo" />
+
+    <!-- ============================================================
+         Favicons
+         ============================================================ -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/favicon.ico" />
+
+    <!-- ============================================================
+         Fonts — Inter, matching the main Grabvo app
+         ============================================================ -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600;1,700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- ============================================================
+         FontAwesome — icons, matching the main Grabvo app
+         ============================================================ -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+      integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+
+    <!-- ============================================================
+         QZ Tray — loaded before React so window.qz is ready
+         ============================================================ -->
+    <script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.6/qz-tray.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

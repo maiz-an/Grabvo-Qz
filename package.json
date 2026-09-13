@@ -1,0 +1,50 @@
+{
+  "name": "grabvo-qz",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Grabvo Print — silent 80mm receipt/ticket printing over QZ Tray for Grabvo. Preview exactly how receipts and kitchen tickets print, and set up silent printing with a signed certificate. Works locally (Express) and on Vercel (serverless).",
+  "author": "maiz-an",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maiz-an/Grabvo-Qz.git"
+  },
+  "homepage": "https://qz.grabvo.app",
+  "bugs": {
+    "url": "https://github.com/maiz-an/Grabvo-Qz/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "concurrently -n server,client -c cyan,green \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "tsx watch server/index.ts",
+    "dev:client": "vite",
+    "build": "tsc -b && vite build",
+    "start": "tsx server/index.ts",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.7.5",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "@vercel/node": "^4.0.0",
+    "@vitejs/plugin-react": "^4.3.2",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.0.1",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.8"
+  }
+}
