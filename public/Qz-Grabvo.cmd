@@ -3,13 +3,13 @@ setlocal EnableExtensions EnableDelayedExpansion
 title Grabvo - QZ Tray Setup
 
 :: =========================================================================
-::   Grabvo QZ Tray Auto-Installer (v3)
+::   Grabvo QZ Tray Auto-Installer (v4)
 ::   ------------------------------------------------------------------------
-::   Installs QZ Tray and trusts the Grabvo certificate for silent printing.
-::   - Handles QZ Tray 2.1.1+ install quirks via qz-print_silent=1
-::   - Launches everything detached so no secondary console appears
-::   - Verifies the install actually registered before claiming success
-::   - 100%% ASCII output - works on any Windows console, font, codepage
+::   Installs QZ Tray and registers the Grabvo certificate via override.crt
+::   (the officially-supported "always trust" mechanism). Avoids the CLI
+::   --whitelist path, which is flaky across QZ Tray versions and can
+::   hang if launched via the console wrapper.
+::   100%% ASCII output.
 :: =========================================================================
 
 :: -------------------------------------------------------------------------
@@ -175,6 +175,9 @@ if "!QZ_OK!"=="0" (
     goto :cleanup
 )
 call :ok "QZ Tray installed"
+
+:: Sweep anything the installer may have auto-launched.
+powershell -NoProfile -Command "!PROC_KILL!" >nul 2>&1
 exit /b 0
 
 :poll_install
@@ -212,63 +215,41 @@ if "!PEM_OK!"=="0" (
 exit /b 0
 
 :: =========================================================================
-::   STEP 6 - Register the certificate with QZ Tray
+::   STEP 6 - Register the certificate via override.crt
 :: =========================================================================
 :step6
 call :header "6/8" "Registering the certificate with QZ Tray"
 
-set "WHITELIST_OK=0"
+:: override.crt is QZ Tray's officially-supported "always trust this
+:: certificate" mechanism. QZ Tray reads it at every startup. It doesn't
+:: depend on any CLI flag, doesn't need a console, and cannot hang.
+::
+:: This replaces the old qz-tray-console.exe --whitelist approach, which
+:: broke in a couple of ways: (a) the argument escaping passed literal
+:: backslash-quotes, so the flag was ignored and the console launched the
+:: full GUI instead; (b) the console wrapper then never exited.
 
-:: 6a - primary: qz-tray-console --whitelist, launched detached.
-echo   !SL!Registering with QZ Tray...
-if exist "%QZ_CONSOLE%" (
-    powershell -NoProfile -Command "$env:qz_print_silent='1'; try { $p = Start-Process -FilePath '%QZ_CONSOLE%' -ArgumentList '--whitelist','\"%CERT_FILE%\"' -WindowStyle Hidden -PassThru -Wait; exit $p.ExitCode } catch { exit 1 }" >nul 2>&1
-    if !errorLevel! equ 0 (
-        set "WHITELIST_OK=1"
-        call :ok "Certificate registered"
-    ) else (
-        call :warn "Primary method failed - trying an alternate"
-    )
-    :: Sweep any lingering console process
-    powershell -NoProfile -Command "!PROC_KILL!" >nul 2>&1
-)
+set "REGISTER_OK=0"
 
-:: 6b - fallback: bundled javaw + jar --whitelist
-if "!WHITELIST_OK!"=="0" (
-    if exist "%QZ_JAVA%" (
-        if exist "%QZ_JAR%" (
-            powershell -NoProfile -Command "try { $p = Start-Process -FilePath '%QZ_JAVA%' -ArgumentList '-jar','\"%QZ_JAR%\"','--whitelist','\"%CERT_FILE%\"' -WindowStyle Hidden -PassThru -Wait; exit $p.ExitCode } catch { exit 1 }" >nul 2>&1
-            if !errorLevel! equ 0 (
-                set "WHITELIST_OK=1"
-                call :ok "Certificate registered"
-            )
-        )
-    )
-)
-
-:: 6c - last resort: system java on PATH
-if "!WHITELIST_OK!"=="0" (
-    if exist "%QZ_JAR%" (
-        where java >nul 2>&1
-        if !errorLevel! equ 0 (
-            java -jar "%QZ_JAR%" --whitelist "%CERT_FILE%" >nul 2>&1
-            if !errorLevel! equ 0 (
-                set "WHITELIST_OK=1"
-                call :ok "Certificate registered"
-            )
-        )
-    )
-)
-
-:: 6d - backup: override.crt (read at every QZ Tray startup)
+:: Primary: install directory
 if exist "%QZ_INSTALL_DIR%" (
     copy /Y "%CERT_FILE%" "%QZ_INSTALL_DIR%\override.crt" >nul 2>&1
-    if !errorLevel! equ 0 (
-        call :ok "Backup registration saved"
+    if exist "%QZ_INSTALL_DIR%\override.crt" (
+        set "REGISTER_OK=1"
+        call :ok "Certificate registered"
     )
 )
 
-:: 6e - mirror user trust to machine-wide location
+:: Backup: machine-wide location (all users)
+if not exist "%PROGRAMDATA%\qz" mkdir "%PROGRAMDATA%\qz" >nul 2>&1
+copy /Y "%CERT_FILE%" "%PROGRAMDATA%\qz\override.crt" >nul 2>&1
+if exist "%PROGRAMDATA%\qz\override.crt" (
+    if "!REGISTER_OK!"=="0" set "REGISTER_OK=1"
+    call :ok "Backup registration saved"
+)
+
+:: If the user already has an allow-list from a previous QZ Tray install,
+:: mirror it to the machine-wide location so it applies to all users.
 set "USER_ALLOWED=%APPDATA%\qz\allowed.dat"
 if exist "%USER_ALLOWED%" (
     if not exist "%PROGRAMDATA%\qz" mkdir "%PROGRAMDATA%\qz" >nul 2>&1
@@ -278,8 +259,9 @@ if exist "%USER_ALLOWED%" (
     )
 )
 
-if "!WHITELIST_OK!"=="0" (
-    call :warn "Primary registration didn't succeed - relying on backup"
+if "!REGISTER_OK!"=="0" (
+    call :fail "Could not register the certificate - check permissions"
+    goto :cleanup
 )
 exit /b 0
 
@@ -313,10 +295,11 @@ call :header "8/8" "Starting QZ Tray"
 powershell -NoProfile -Command "!PROC_KILL!" >nul 2>&1
 timeout /t 2 /nobreak >nul 2>&1
 
+:: Launch via javaw (no console) if we can, fall back to the tray exe.
 set "LAUNCHED=0"
 if exist "%QZ_JAVA%" (
     if exist "%QZ_JAR%" (
-        powershell -NoProfile -Command "try { Start-Process -FilePath '%QZ_JAVA%' -ArgumentList '-Xms512M','-jar','\"%QZ_JAR%\"' -WindowStyle Hidden; exit 0 } catch { exit 1 }" >nul 2>&1
+        powershell -NoProfile -Command "try { Start-Process -FilePath '%QZ_JAVA%' -ArgumentList '-Xms512M','-jar','%QZ_JAR%' -WindowStyle Hidden; exit 0 } catch { exit 1 }" >nul 2>&1
         if !errorLevel! equ 0 (
             set "LAUNCHED=1"
             call :ok "QZ Tray started"
@@ -362,7 +345,6 @@ exit /b 0
 :: =========================================================================
 
 :download
-:: Args: URL, output_path. Retries MAX_RETRIES times.
 set "DL_URL=%~1"
 set "DL_OUT=%~2"
 set "DL_ATTEMPT=0"
@@ -432,9 +414,6 @@ exit /b 0
 echo   %RD%%B%[XX]%R%   %RD%%B%%~1%R%
 exit /b 1
 
-:: =========================================================================
-::   COMPLETE - clear screen, show Grabvo logo, then result
-:: =========================================================================
 :complete
 if "!FINAL_STATE!"=="OK" (
     cls
@@ -476,7 +455,7 @@ if "!FINAL_STATE!"=="OK" (
     echo.
     echo   %AM%%B%============================================================%R%
     echo.
-    echo   %WH%QZ Tray was installed and the certificate was trusted,%R%
+    echo   %WH%QZ Tray was installed and the certificate was registered,%R%
     echo   %WH%but QZ Tray didn't stay running after it was started.%R%
     echo.
     echo   %SL%Try this:%R%
