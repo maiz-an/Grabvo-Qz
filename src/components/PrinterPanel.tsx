@@ -73,6 +73,19 @@ export function PrinterPanel({
   /* ---------- dropdowns ---------- */
   return (
     <Card padding="none" className="flex flex-col gap-4 p-6">
+      {/* Moved here from the old Setup tab — this is where users
+          actually pick printers, so it belongs on this panel. */}
+      <div className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3.5 text-[12.5px] leading-relaxed text-slate-500">
+        <span className="flex h-8 w-8 flex-none items-center justify-center rounded-2xl bg-white text-violet-600 ring-1 ring-slate-200">
+          <i className="fa-solid fa-floppy-disk" aria-hidden="true" />
+        </span>
+        <span className="pt-1">
+          <b className="text-slate-900">Printer choices are saved</b> to this
+          browser. Reload the page and your receipt &amp; ticket printers are
+          remembered automatically.
+        </span>
+      </div>
+
       <SelectRow
         id="sel-receipt"
         label="Receipt printer"
@@ -87,13 +100,6 @@ export function PrinterPanel({
         options={printers}
         onChange={(v) => onSelect("ticket", v)}
       />
-      <div className="flex items-center gap-2 text-xs text-slate-400">
-        <i
-          className="fa-solid fa-floppy-disk text-violet-400"
-          aria-hidden="true"
-        />
-        Selections are saved automatically to this browser.
-      </div>
     </Card>
   );
 }

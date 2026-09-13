@@ -6,8 +6,7 @@ import { ActionButtons } from "@/components/ActionButtons";
 import { PrinterPanel } from "@/components/PrinterPanel";
 import { PrintCards } from "@/components/PrintCards";
 import { PreviewModal, type PreviewKind } from "@/components/PreviewModal";
-import { InfoPanel } from "@/components/InfoPanel";
-import { Footer } from "@/components/Footer";
+import { SetupPanel } from "@/components/SetupPanel";
 import { Toasts } from "@/components/Toasts";
 import { SplashScreen } from "@/components/SplashScreen";
 
@@ -289,8 +288,7 @@ export default function App() {
 
         {activeTab === "setup" && (
           <div key="setup" className="animate-[fadeIn_220ms_ease-out_forwards]">
-            <InfoPanel />
-            <Footer />
+            <SetupPanel />
           </div>
         )}
       </div>
