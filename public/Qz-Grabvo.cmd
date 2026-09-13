@@ -3,13 +3,11 @@ setlocal EnableExtensions EnableDelayedExpansion
 title Grabvo - QZ Tray Setup
 
 :: =========================================================================
-::   Grabvo QZ Tray Auto-Installer (v4)
+::   Grabvo QZ Tray Auto-Installer (v5)
 ::   ------------------------------------------------------------------------
 ::   Installs QZ Tray and registers the Grabvo certificate via override.crt
-::   (the officially-supported "always trust" mechanism). Avoids the CLI
-::   --whitelist path, which is flaky across QZ Tray versions and can
-::   hang if launched via the console wrapper.
-::   100%% ASCII output.
+::   (the officially-supported "always trust" mechanism).
+::   All output is pure ASCII - no chcp needed, no encoding issues.
 :: =========================================================================
 
 :: -------------------------------------------------------------------------
@@ -61,12 +59,8 @@ set "QZ_JAVA=%QZ_INSTALL_DIR%\runtime\bin\javaw.exe"
 set "MAX_RETRIES=3"
 set "RETRY_DELAY=4"
 
-:: qz-print_silent=1 tells the QZ Tray installer to keep /S behavior
-:: even when it respawns itself (upstream issue #713).
 set "qz-print_silent=1"
 
-:: Kill every QZ Tray process. Uses Get-CimInstance because WMIC is
-:: deprecated on Windows 11 24H2+.
 set "PROC_KILL=Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ExecutablePath -like '*QZ Tray*' -or $_.CommandLine -like '*qz-tray.jar*' -or $_.Name -eq 'qz-tray.exe' -or $_.Name -eq 'qz-tray-console.exe' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; Get-Process -Name 'qz-tray','qz-tray-console' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue"
 
 cls
@@ -125,8 +119,6 @@ exit /b 0
 :step3
 call :header "3/8" "Downloading QZ Tray"
 
-:: Stop any existing QZ Tray first, so the installer isn't blocked by
-:: file locks or a stale instance holding ports.
 powershell -NoProfile -Command "!PROC_KILL!" >nul 2>&1
 timeout /t 1 /nobreak >nul 2>&1
 
@@ -158,11 +150,9 @@ set "QZ_OK=0"
 echo   !SL!Setting up QZ Tray... this may take a minute
 powershell -NoProfile -Command "$env:qz_print_silent='1'; Start-Process -FilePath '!QZ_EXE!' -ArgumentList '/S' -WindowStyle Hidden -Wait" >nul 2>&1
 
-:: Wait for the installer to drop its files (up to 60s).
 set /a POLL=0
 call :poll_install
 
-:: Retry once if the first pass didn't register anything.
 if "!QZ_OK!"=="0" (
     call :warn "First pass didn't complete - retrying once"
     powershell -NoProfile -Command "$env:qz_print_silent='1'; Start-Process -FilePath '!QZ_EXE!' -ArgumentList '/S' -WindowStyle Hidden -Wait" >nul 2>&1
@@ -176,7 +166,6 @@ if "!QZ_OK!"=="0" (
 )
 call :ok "QZ Tray installed"
 
-:: Sweep anything the installer may have auto-launched.
 powershell -NoProfile -Command "!PROC_KILL!" >nul 2>&1
 exit /b 0
 
@@ -220,18 +209,8 @@ exit /b 0
 :step6
 call :header "6/8" "Registering the certificate with QZ Tray"
 
-:: override.crt is QZ Tray's officially-supported "always trust this
-:: certificate" mechanism. QZ Tray reads it at every startup. It doesn't
-:: depend on any CLI flag, doesn't need a console, and cannot hang.
-::
-:: This replaces the old qz-tray-console.exe --whitelist approach, which
-:: broke in a couple of ways: (a) the argument escaping passed literal
-:: backslash-quotes, so the flag was ignored and the console launched the
-:: full GUI instead; (b) the console wrapper then never exited.
-
 set "REGISTER_OK=0"
 
-:: Primary: install directory
 if exist "%QZ_INSTALL_DIR%" (
     copy /Y "%CERT_FILE%" "%QZ_INSTALL_DIR%\override.crt" >nul 2>&1
     if exist "%QZ_INSTALL_DIR%\override.crt" (
@@ -240,7 +219,6 @@ if exist "%QZ_INSTALL_DIR%" (
     )
 )
 
-:: Backup: machine-wide location (all users)
 if not exist "%PROGRAMDATA%\qz" mkdir "%PROGRAMDATA%\qz" >nul 2>&1
 copy /Y "%CERT_FILE%" "%PROGRAMDATA%\qz\override.crt" >nul 2>&1
 if exist "%PROGRAMDATA%\qz\override.crt" (
@@ -248,8 +226,6 @@ if exist "%PROGRAMDATA%\qz\override.crt" (
     call :ok "Backup registration saved"
 )
 
-:: If the user already has an allow-list from a previous QZ Tray install,
-:: mirror it to the machine-wide location so it applies to all users.
 set "USER_ALLOWED=%APPDATA%\qz\allowed.dat"
 if exist "%USER_ALLOWED%" (
     if not exist "%PROGRAMDATA%\qz" mkdir "%PROGRAMDATA%\qz" >nul 2>&1
@@ -295,24 +271,22 @@ call :header "8/8" "Starting QZ Tray"
 powershell -NoProfile -Command "!PROC_KILL!" >nul 2>&1
 timeout /t 2 /nobreak >nul 2>&1
 
-:: Launch via javaw (no console) if we can, fall back to the tray exe.
+:: Use cmd's built-in `start ""` for the launch, NOT PowerShell's
+:: Start-Process (which drops quotes and truncates paths with spaces).
+:: javaw.exe is GUI-subsystem so `start` opens no console for it.
 set "LAUNCHED=0"
 if exist "%QZ_JAVA%" (
     if exist "%QZ_JAR%" (
-        powershell -NoProfile -Command "try { Start-Process -FilePath '%QZ_JAVA%' -ArgumentList '-Xms512M','-jar','%QZ_JAR%' -WindowStyle Hidden; exit 0 } catch { exit 1 }" >nul 2>&1
-        if !errorLevel! equ 0 (
-            set "LAUNCHED=1"
-            call :ok "QZ Tray started"
-        )
+        start "" "%QZ_JAVA%" -Xms512M -jar "%QZ_JAR%"
+        set "LAUNCHED=1"
+        call :ok "QZ Tray started"
     )
 )
 if "!LAUNCHED!"=="0" (
     if exist "%QZ_TRAY_EXE%" (
-        powershell -NoProfile -Command "try { Start-Process -FilePath '%QZ_TRAY_EXE%' -WindowStyle Hidden; exit 0 } catch { exit 1 }" >nul 2>&1
-        if !errorLevel! equ 0 (
-            set "LAUNCHED=1"
-            call :ok "QZ Tray started"
-        )
+        start "" "%QZ_TRAY_EXE%"
+        set "LAUNCHED=1"
+        call :ok "QZ Tray started"
     )
 )
 
@@ -322,7 +296,6 @@ if "!LAUNCHED!"=="0" (
     exit /b 0
 )
 
-:: Wait a few seconds for QZ Tray to actually bind its port.
 timeout /t 3 /nobreak >nul 2>&1
 
 set "RUNNING=0"
@@ -375,18 +348,21 @@ if !DL_ATTEMPT! lss %MAX_RETRIES% (
 exit /b 1
 
 :: =========================================================================
-::   UI (all ASCII)
+::   UI (pure ASCII - no chcp needed, no encoding issues)
 :: =========================================================================
 
 :banner
 echo.
 echo   %PU%%B%============================================================%R%
 echo.
-echo   %PU%%B%        ####  ####     #    ####   #   #   ####%R%
-echo   %PU%%B%        #     #   #   # #   #   #  #   #  #   #%R%
-echo   %PU%%B%        # ### ####   ##### ####    #   #  #   #%R%
-echo   %PU%%B%        #   # #  #   #   # #   #    # #   #   #%R%
-echo   %PU%%B%        ### # #   #  #   # ####      #     ####%R%
+echo   %PU%%B%.d8888b.                   888                        %R%
+echo   %PU%%B%d88P  Y88b                  888                        %R%
+echo   %PU%%B%888    888                  888                        %R%
+echo   %PU%%B%888        888d888  8888b.  88888b.  888  888  .d88b.  %R%
+echo   %PU%%B%888  88888 888P"       "88b 888 "88b 888  888 d88""88b %R%
+echo   %PU%%B%888    888 888     .d888888 888  888 Y88  88P 888  888 %R%
+echo   %PU%%B%Y88b  d88P 888     888  888 888 d88P  Y8bd8P  Y88..88P %R%
+echo   %PU%%B% "Y8888P88 888     "Y888888 88888P"    Y88P    "Y88P"  %R%
 echo.
 echo   %WH%%B%                  QZ Tray Auto-Installer%R%
 echo   %SL%             Install QZ Tray + trust the%R%
@@ -420,11 +396,14 @@ if "!FINAL_STATE!"=="OK" (
     echo.
     echo   %GR%%B%============================================================%R%
     echo.
-    echo   %PU%%B%        ####  ####     #    ####   #   #   ####%R%
-    echo   %PU%%B%        #     #   #   # #   #   #  #   #  #   #%R%
-    echo   %PU%%B%        # ### ####   ##### ####    #   #  #   #%R%
-    echo   %PU%%B%        #   # #  #   #   # #   #    # #   #   #%R%
-    echo   %PU%%B%        ### # #   #  #   # ####      #     ####%R%
+    echo   %PU%%B%.d8888b.                   888                        %R%
+    echo   %PU%%B%d88P  Y88b                  888                        %R%
+    echo   %PU%%B%888    888                  888                        %R%
+    echo   %PU%%B%888        888d888  8888b.  88888b.  888  888  .d88b.  %R%
+    echo   %PU%%B%888  88888 888P"       "88b 888 "88b 888  888 d88""88b %R%
+    echo   %PU%%B%888    888 888     .d888888 888  888 Y88  88P 888  888 %R%
+    echo   %PU%%B%Y88b  d88P 888     888  888 888 d88P  Y8bd8P  Y88..88P %R%
+    echo   %PU%%B% "Y8888P88 888     "Y888888 88888P"    Y88P    "Y88P"  %R%
     echo.
     echo   %GR%%B%              SETUP COMPLETE%R%
     echo   %SL%      QZ Tray is installed and ready to print%R%
@@ -444,11 +423,14 @@ if "!FINAL_STATE!"=="OK" (
     echo.
     echo   %AM%%B%============================================================%R%
     echo.
-    echo   %PU%%B%        ####  ####     #    ####   #   #   ####%R%
-    echo   %PU%%B%        #     #   #   # #   #   #  #   #  #   #%R%
-    echo   %PU%%B%        # ### ####   ##### ####    #   #  #   #%R%
-    echo   %PU%%B%        #   # #  #   #   # #   #    # #   #   #%R%
-    echo   %PU%%B%        ### # #   #  #   # ####      #     ####%R%
+    echo   %PU%%B%.d8888b.                   888                        %R%
+    echo   %PU%%B%d88P  Y88b                  888                        %R%
+    echo   %PU%%B%888    888                  888                        %R%
+    echo   %PU%%B%888        888d888  8888b.  88888b.  888  888  .d88b.  %R%
+    echo   %PU%%B%888  88888 888P"       "88b 888 "88b 888  888 d88""88b %R%
+    echo   %PU%%B%888    888 888     .d888888 888  888 Y88  88P 888  888 %R%
+    echo   %PU%%B%Y88b  d88P 888     888  888 888 d88P  Y8bd8P  Y88..88P %R%
+    echo   %PU%%B% "Y8888P88 888     "Y888888 88888P"    Y88P    "Y88P"  %R%
     echo.
     echo   %AM%%B%          FINISHED WITH WARNINGS%R%
     echo   %SL%      QZ Tray didn't stay running after startup%R%

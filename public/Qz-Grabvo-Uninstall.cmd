@@ -3,13 +3,12 @@ setlocal EnableExtensions EnableDelayedExpansion
 title Grabvo - QZ Tray Uninstaller
 
 :: =========================================================================
-::   Grabvo QZ Tray Uninstaller (v3)
+::   Grabvo QZ Tray Uninstaller (v5)
 ::   ------------------------------------------------------------------------
 ::   Removes QZ Tray, its auto-start entries, and the Grabvo certificate
-::   trust. Handles the QZ Tray 2.1.1+ silent-uninstall quirk by setting
-::   qz-print_silent=1 and launching the uninstaller detached so it can
-::   never touch this console. Verifies removal before claiming success.
-::   100%% ASCII output.
+::   trust. Handles the QZ Tray 2.1.1+ silent-uninstall quirk via
+::   qz-print_silent=1 and a detached launch.
+::   All output is pure ASCII - no chcp needed, no encoding issues.
 :: =========================================================================
 
 :: -------------------------------------------------------------------------
@@ -56,8 +55,6 @@ set "QZ_USER_DATA=%APPDATA%\qz"
 set "QZ_MACHINE_DATA=%PROGRAMDATA%\qz"
 set "QZ_UNINSTALLER=%QZ_INSTALL_DIR%\uninstall.exe"
 
-:: Kill every QZ Tray process. Uses Get-CimInstance because WMIC is
-:: deprecated on Windows 11 24H2+.
 set "PROC_KILL=Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ExecutablePath -like '*QZ Tray*' -or $_.CommandLine -like '*qz-tray.jar*' -or $_.Name -eq 'qz-tray.exe' -or $_.Name -eq 'qz-tray-console.exe' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; Get-Process -Name 'qz-tray','qz-tray-console' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue"
 
 cls
@@ -111,14 +108,10 @@ if not exist "%QZ_UNINSTALLER%" (
     exit /b 0
 )
 
-:: qz-print_silent=1 is the documented workaround for the QZ Tray
-:: 2.1.1+ silent-uninstall respawn bug (upstream issue #713). Without
-:: it the /S flag is dropped when the stub respawns itself.
 set "qz-print_silent=1"
 echo   !SL!Running QZ Tray uninstaller...
 powershell -NoProfile -Command "Start-Process -FilePath '%QZ_UNINSTALLER%' -ArgumentList '/S' -WindowStyle Hidden" >nul 2>&1
 
-:: Poll for up to 60s for the install folder to disappear.
 set /a POLL=0
 call :poll_uninstall
 exit /b 0
@@ -142,7 +135,6 @@ goto :poll_uninstall
 :step4
 call :header "4/7" "Cleaning up application folders"
 
-:: Kill anything the uninstaller respawned, so file locks release.
 powershell -NoProfile -Command "!PROC_KILL!" >nul 2>&1
 timeout /t 2 /nobreak >nul 2>&1
 
@@ -217,12 +209,10 @@ call :header "7/7" "Verifying removal"
 
 set "VERIFY_OK=1"
 
-:: Install folder must be gone
 if exist "%QZ_INSTALL_DIR%\qz-tray.jar" set "VERIFY_OK=0"
 if exist "%QZ_INSTALL_DIR%\qz-tray.exe" set "VERIFY_OK=0"
 if exist "%QZ_INSTALL_DIR%\uninstall.exe" set "VERIFY_OK=0"
 
-:: No QZ Tray process should be running
 tasklist /FI "IMAGENAME eq qz-tray.exe" 2>nul | find /I "qz-tray.exe" >nul
 if !errorLevel! equ 0 set "VERIFY_OK=0"
 tasklist /FI "IMAGENAME eq qz-tray-console.exe" 2>nul | find /I "qz-tray-console.exe" >nul
@@ -238,18 +228,21 @@ if "!VERIFY_OK!"=="1" (
 exit /b 0
 
 :: =========================================================================
-::   UI
+::   UI (pure ASCII - no chcp needed, no encoding issues)
 :: =========================================================================
 
 :banner
 echo.
 echo   %RD%%B%============================================================%R%
 echo.
-echo   %PU%%B%        ####  ####     #    ####   #   #   ####%R%
-echo   %PU%%B%        #     #   #   # #   #   #  #   #  #   #%R%
-echo   %PU%%B%        # ### ####   ##### ####    #   #  #   #%R%
-echo   %PU%%B%        #   # #  #   #   # #   #    # #   #   #%R%
-echo   %PU%%B%        ### # #   #  #   # ####      #     ####%R%
+echo   %PU%%B%.d8888b.                   888                        %R%
+echo   %PU%%B%d88P  Y88b                  888                        %R%
+echo   %PU%%B%888    888                  888                        %R%
+echo   %PU%%B%888        888d888  8888b.  88888b.  888  888  .d88b.  %R%
+echo   %PU%%B%888  88888 888P"       "88b 888 "88b 888  888 d88""88b %R%
+echo   %PU%%B%888    888 888     .d888888 888  888 Y88  88P 888  888 %R%
+echo   %PU%%B%Y88b  d88P 888     888  888 888 d88P  Y8bd8P  Y88..88P %R%
+echo   %PU%%B% "Y8888P88 888     "Y888888 88888P"    Y88P    "Y88P"  %R%
 echo.
 echo   %WH%%B%              QZ Tray Uninstaller%R%
 echo   %SL%      Remove QZ Tray + the Grabvo certificate%R%
@@ -282,19 +275,19 @@ exit /b 0
 echo   %RD%%B%[XX]%R%   %RD%%B%%~1%R%
 exit /b 1
 
-:: =========================================================================
-::   COMPLETE - clear screen, show Grabvo logo, then result
-:: =========================================================================
 :complete_ok
 cls
 echo.
 echo   %GR%%B%============================================================%R%
 echo.
-echo   %PU%%B%        ####  ####     #    ####   #   #   ####%R%
-echo   %PU%%B%        #     #   #   # #   #   #  #   #  #   #%R%
-echo   %PU%%B%        # ### ####   ##### ####    #   #  #   #%R%
-echo   %PU%%B%        #   # #  #   #   # #   #    # #   #   #%R%
-echo   %PU%%B%        ### # #   #  #   # ####      #     ####%R%
+echo   %PU%%B%.d8888b.                   888                        %R%
+echo   %PU%%B%d88P  Y88b                  888                        %R%
+echo   %PU%%B%888    888                  888                        %R%
+echo   %PU%%B%888        888d888  8888b.  88888b.  888  888  .d88b.  %R%
+echo   %PU%%B%888  88888 888P"       "88b 888 "88b 888  888 d88""88b %R%
+echo   %PU%%B%888    888 888     .d888888 888  888 Y88  88P 888  888 %R%
+echo   %PU%%B%Y88b  d88P 888     888  888 888 d88P  Y8bd8P  Y88..88P %R%
+echo   %PU%%B% "Y8888P88 888     "Y888888 88888P"    Y88P    "Y88P"  %R%
 echo.
 echo   %GR%%B%              UNINSTALL COMPLETE%R%
 echo   %SL%      QZ Tray has been removed from this computer%R%
@@ -315,11 +308,14 @@ cls
 echo.
 echo   %AM%%B%============================================================%R%
 echo.
-echo   %PU%%B%        ####  ####     #    ####   #   #   ####%R%
-echo   %PU%%B%        #     #   #   # #   #   #  #   #  #   #%R%
-echo   %PU%%B%        # ### ####   ##### ####    #   #  #   #%R%
-echo   %PU%%B%        #   # #  #   #   # #   #    # #   #   #%R%
-echo   %PU%%B%        ### # #   #  #   # ####      #     ####%R%
+echo   %PU%%B%.d8888b.                   888                        %R%
+echo   %PU%%B%d88P  Y88b                  888                        %R%
+echo   %PU%%B%888    888                  888                        %R%
+echo   %PU%%B%888        888d888  8888b.  88888b.  888  888  .d88b.  %R%
+echo   %PU%%B%888  88888 888P"       "88b 888 "88b 888  888 d88""88b %R%
+echo   %PU%%B%888    888 888     .d888888 888  888 Y88  88P 888  888 %R%
+echo   %PU%%B%Y88b  d88P 888     888  888 888 d88P  Y8bd8P  Y88..88P %R%
+echo   %PU%%B% "Y8888P88 888     "Y888888 88888P"    Y88P    "Y88P"  %R%
 echo.
 echo   %AM%%B%          CLEANUP FINISHED WITH WARNINGS%R%
 echo   %SL%      Some QZ Tray files could not be removed%R%
@@ -337,11 +333,9 @@ echo   %SL%  3. If it still fails, restart Windows and run it once more%R%
 echo.
 exit /b 0
 
-:: =========================================================================
-::   CLEANUP - always runs, always pauses
-:: =========================================================================
 :cleanup
 cd /d "%TEMP%" >nul 2>&1
+echo.
 echo   ============================================================
 echo    Press any key to close this window.
 echo   ============================================================
