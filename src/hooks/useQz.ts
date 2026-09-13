@@ -42,9 +42,24 @@ export function useQz(showToast: ShowToast): UseQzResult {
     setStatus("connecting");
     setErrorMessage("");
     try {
+      // Was QZ already connected before we call connectQz()? Used to give
+      // the success toast a more informative body — "already running"
+      // when it was open, "started" when this call actually opened the
+      // websocket. Guard against window.qz being undefined in the brief
+      // window before qz-tray.js finishes loading.
+      const wasActive = window.qz ? window.qz.websocket.isActive() : false;
+
       await connectQz();
       setStatus("connected");
-      showToast("success", "QZ Tray connected");
+
+      showToast(
+        "success",
+        "QZ Tray connected",
+        wasActive
+          ? "Tray is already running and ready to print"
+          : "Tray started and ready to print"
+      );
+
       await refreshPrinters();
     } catch (err) {
       setStatus("error");
