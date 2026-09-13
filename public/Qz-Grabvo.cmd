@@ -418,9 +418,9 @@ echo   %PU%%B%888    888 888     .d888888 888  888 Y88  88P 888  888 %R%
 echo   %PU%%B%Y88b  d88P 888     888  888 888 d88P  Y8bd8P  Y88..88P %R%
 echo   %PU%%B% "Y8888P88 888     "Y888888 88888P"    Y88P    "Y88P"  %R%
 echo.
-echo   %WH%%B%                QZ Tray Auto-Installer%R%
-echo   %SL%               Install QZ Tray + trust the%R%
-echo   %SL%              Grabvo certificate for silent printing%R%
+echo   %WH%%B%                  QZ Tray Auto-Installer%R%
+echo   %SL%                Install QZ Tray + trust the%R%
+echo   %SL%             Grabvo certificate for silent printing%R%
 echo.
 echo   %PU%%B%============================================================%R%
 echo.
@@ -486,8 +486,8 @@ if "!FINAL_STATE!"=="OK" (
     echo   %PU%%B%Y88b  d88P 888     888  888 888 d88P  Y8bd8P  Y88..88P %R%
     echo   %PU%%B% "Y8888P88 888     "Y888888 88888P"    Y88P    "Y88P"  %R%
     echo.
-    echo   %AM%%B%             FINISHED WITH WARNINGS%R%
-    echo   %SL%         QZ Tray didn't stay running after startup%R%
+    echo   %AM%%B%              FINISHED WITH WARNINGS%R%
+    echo   %SL%        QZ Tray didn't stay running after startup%R%
     echo.
     echo   %AM%%B%============================================================%R%
     echo.
