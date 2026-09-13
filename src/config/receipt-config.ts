@@ -44,11 +44,11 @@ export const receiptConfig: ReceiptConfig = {
     name: "GRABVO CAFE",
     nameAr: "",
     tagline: "Fresh Food · Fast Service",
-    logo: "",
+    logo: "./fav.png",
     address: "Doha, Qatar",
     phone: "+974 5000 0000",
     email: "",
-    website: "grabvo.app"
+    website: "grabvo.app/grabvo"
   },
 
   locale: {
