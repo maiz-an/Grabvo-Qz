@@ -568,7 +568,6 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
     font-size: ${S.poweredSize || "6.5pt"};
     font-weight: 800;
     letter-spacing: 0.24em;
-    text-transform: uppercase;
     color: #999;
   }
 </style>

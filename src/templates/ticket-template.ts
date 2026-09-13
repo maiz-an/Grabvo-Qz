@@ -342,7 +342,6 @@ export function buildTicketHtml(opts: TicketOptions = {}): string {
     font-size:   ${TS.poweredSize || "7pt"};
     font-weight: 800;
     letter-spacing: 0.24em;
-    text-transform: uppercase;
     color: #999;
   }
 </style>

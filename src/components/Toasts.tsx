@@ -10,6 +10,18 @@ interface Props {
   onDismiss?: (id: ToastItem["id"]) => void;
 }
 
+/**
+ * iOS-notification-style toast config.
+ *
+ * Two things make it feel "glassy" instead of just translucent:
+ *   1. A light-tinted frosted background (NOT a solid colour), heavy
+ *      backdrop-blur, and a soft outer shadow that lifts it off the page.
+ *   2. A hairline white top border (via the inset ring) that mimics the
+ *      specular highlight iOS banners have — that's what sells the glass.
+ *
+ * The coloured left accent is preserved but moved to a thin ring on the
+ * icon badge only, so the card itself stays neutral and glassy.
+ */
 const KIND_STYLES: Record<
   ToastItem["type"],
   {
@@ -20,26 +32,30 @@ const KIND_STYLES: Record<
   }
 > = {
   success: {
-    wrapper: "border-emerald-200 bg-white/20",
-    iconBg: "bg-emerald-100",
+    wrapper:
+      "border-emerald-100/80 bg-emerald-50/60 ring-1 ring-white/60 ring-inset",
+    iconBg: "bg-emerald-500/15",
     iconColor: "text-emerald-600",
     icon: "fa-circle-check",
   },
   error: {
-    wrapper: "border-red-200 bg-red-50",
-    iconBg: "bg-red-100",
+    wrapper:
+      "border-red-100/80 bg-red-50/60 ring-1 ring-white/60 ring-inset",
+    iconBg: "bg-red-500/15",
     iconColor: "text-red-600",
     icon: "fa-circle-exclamation",
   },
   warning: {
-    wrapper: "border-amber-200 bg-amber-50",
-    iconBg: "bg-amber-100",
+    wrapper:
+      "border-amber-100/80 bg-amber-50/60 ring-1 ring-white/60 ring-inset",
+    iconBg: "bg-amber-500/15",
     iconColor: "text-amber-600",
     icon: "fa-triangle-exclamation",
   },
   info: {
-    wrapper: "border-violet-200 bg-white/20",
-    iconBg: "bg-violet-100",
+    wrapper:
+      "border-violet-100/80 bg-violet-50/60 ring-1 ring-white/60 ring-inset",
+    iconBg: "bg-violet-500/15",
     iconColor: "text-violet-600",
     icon: "fa-circle-info",
   },
@@ -58,9 +74,17 @@ export function Toasts({ toasts, onDismiss }: Props) {
           <div
             key={t.id}
             role="status"
-            className={`pointer-events-auto flex items-start gap-3 rounded-2xl border px-4 py-3 shadow-md backdrop-blur-md animate-[fadeIn_180ms_ease-out_forwards] ${cfg.wrapper}`}
+            className={`
+              pointer-events-auto flex items-start gap-3 rounded-2xl border
+              px-4 py-3
+              shadow-[0_8px_24px_-8px_rgba(15,23,42,0.18),0_2px_6px_-2px_rgba(15,23,42,0.08)]
+              backdrop-blur-xl backdrop-saturate-150
+              animate-[fadeIn_180ms_ease-out_forwards]
+              ${cfg.wrapper}
+            `}
           >
-            {/* Icon badge — matches FeedbackToast's 9×9 circle */}
+            {/* Icon badge — coloured tint behind a solid-coloured glyph.
+                Matches FeedbackToast's 9×9 circle. */}
             <div
               className={`mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full ${cfg.iconBg} ${cfg.iconColor}`}
             >
@@ -90,12 +114,14 @@ export function Toasts({ toasts, onDismiss }: Props) {
               <button
                 type="button"
                 onClick={() => onDismiss(t.id)}
-                className={`inline-flex h-8 w-8 items-center justify-center rounded-lg transition ${
+                className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition ${
                   t.type === "error"
-                    ? "hover:bg-red-100"
+                    ? "hover:bg-red-500/10"
                     : t.type === "warning"
-                      ? "hover:bg-amber-100"
-                      : "hover:bg-slate-100"
+                      ? "hover:bg-amber-500/10"
+                      : t.type === "success"
+                        ? "hover:bg-emerald-500/10"
+                        : "hover:bg-violet-500/10"
                 }`}
                 aria-label="Dismiss notification"
               >

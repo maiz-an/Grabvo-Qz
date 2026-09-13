@@ -108,9 +108,9 @@ export const receiptConfig: ReceiptConfig = {
     businessNameArSize: "15pt",
     taglineSize: "7pt",
     contactSize: "7pt",
-    logoWidth: "16mm",
-    logoHeight: "16mm",
-    showLogo: false,
+    logoWidth: "20mm",
+    logoHeight: "20mm",
+    showLogo: true,
 
     sectionSize: "7pt",
     sectionTopGap: "4mm",
@@ -203,7 +203,7 @@ export const receiptConfig: ReceiptConfig = {
     thanks: "Thank you for dining with us",
     line2: "We look forward to serving you again",
     returnPolicy: "Items once sold cannot be returned without a valid receipt.",
-    powered: "Powered by Grabvo"
+    powered: "GX · Gravbo"
   },
 
   ticket: {
@@ -215,7 +215,7 @@ export const receiptConfig: ReceiptConfig = {
       items: "items",
       notes: "Special instructions",
       footer: "Please prepare as ordered",
-      powered: "Powered by Grabvo"
+      powered: "GX Gravbo"
     },
 
     sortItemsByName: false,
@@ -299,7 +299,7 @@ export const receiptConfig: ReceiptConfig = {
       items: "items",
       // Big banner at the top of the cancellation receipt:
       footer: "Removed Products",
-      powered: "Powered by Grabvo",
+      powered: "GX - Gravbo",
       // Footer line at the bottom of the cancellation receipt:
       warning: "Kindly remove"
     },
