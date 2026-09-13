@@ -16,9 +16,9 @@ export function Header() {
 
       <p className="max-w-[58ch] text-sm leading-relaxed text-slate-500">
         This is how your receipts and kitchen tickets will print for{" "}
-        <b className="font-semibold text-slate-700">Grabvo Cafe</b>. Connect QZ
-        Tray once — every request is{" "}
-        <b className="font-semibold text-slate-700">signed</b> server-side — and
+        <b className="font-semibold text-slate-700">Grabvo test</b>. Connect QZ
+        Tray once - every request is{" "}
+        <b className="font-semibold text-slate-700">signed</b> server-side and
         every order prints automatically after that, with no popup.
       </p>
     </header>

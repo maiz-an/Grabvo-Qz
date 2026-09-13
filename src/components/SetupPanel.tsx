@@ -28,6 +28,79 @@ function detectOS(): OS {
   return "other";
 }
 
+/** Where the user's manual OS choice is persisted, if they override auto-detect. */
+const OS_OVERRIDE_KEY = "grabvo:setup-os-override";
+
+function readOverride(): OS | null {
+  try {
+    const v = localStorage.getItem(OS_OVERRIDE_KEY);
+    if (v === "windows" || v === "mac" || v === "other") return v;
+  } catch {
+    /* localStorage blocked — fine, just fall back to auto-detect */
+  }
+  return null;
+}
+
+function writeOverride(os: OS) {
+  try {
+    localStorage.setItem(OS_OVERRIDE_KEY, os);
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearOverride() {
+  try {
+    localStorage.removeItem(OS_OVERRIDE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Tiny OS segmented control — 3 pills, iOS-style
+   ------------------------------------------------------------------------- */
+const OS_LABELS: Record<OS, string> = {
+  windows: "Windows",
+  mac: "macOS",
+  other: "Other",
+};
+
+interface OsSwitcherProps {
+  value: OS;
+  onChange: (os: OS) => void;
+}
+
+function OsSwitcher({ value, onChange }: OsSwitcherProps) {
+  return (
+    <div
+      className="flex items-center gap-0.5 rounded-full bg-slate-100 p-0.5"
+      role="tablist"
+      aria-label="Switch operating system"
+    >
+      {(Object.keys(OS_LABELS) as OS[]).map((os) => {
+        const isActive = value === os;
+        return (
+          <button
+            key={os}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => onChange(os)}
+            className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] transition-all duration-200 ${
+              isActive
+                ? "bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            {OS_LABELS[os]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 interface StepProps {
   n: number;
   children: React.ReactNode;
@@ -47,16 +120,42 @@ function Step({ n, children }: StepProps) {
 }
 
 export function SetupPanel() {
+  /* Detected OS is stored separately from the currently-viewed OS, so if
+     the user overrides the choice we can still show an "Auto" reset. */
+  const [autoOs, setAutoOs] = useState<OS>("other");
   const [os, setOs] = useState<OS>("other");
+  const [isOverridden, setIsOverridden] = useState(false);
 
   useEffect(() => {
-    setOs(detectOS());
+    const detected = detectOS();
+    setAutoOs(detected);
+
+    const saved = readOverride();
+    if (saved) {
+      setOs(saved);
+      setIsOverridden(true);
+    } else {
+      setOs(detected);
+    }
   }, []);
+
+  const handleSwitch = (next: OS) => {
+    setOs(next);
+    if (next === autoOs) {
+      // Selecting the auto-detected option clears the override — so the
+      // next visit starts fresh from auto-detect again.
+      clearOverride();
+      setIsOverridden(false);
+    } else {
+      writeOverride(next);
+      setIsOverridden(true);
+    }
+  };
 
   return (
     <div className="mt-8 flex flex-col gap-4">
       <Card padding="none" className="px-6 py-5">
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-[13px] font-bold text-slate-900">
             <i
               className="fa-solid fa-shield-halved text-violet-600"
@@ -64,9 +163,10 @@ export function SetupPanel() {
             />
             Enable silent printing
           </div>
-          <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-violet-600">
-            one-time
-          </span>
+
+          <div className="flex items-center gap-2">
+            <OsSwitcher value={os} onChange={handleSwitch} />
+          </div>
         </div>
 
         {os === "windows" && <WindowsSetup />}
