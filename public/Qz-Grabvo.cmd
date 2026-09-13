@@ -3,10 +3,12 @@ setlocal EnableExtensions EnableDelayedExpansion
 title Grabvo - QZ Tray Setup
 
 :: =========================================================================
-::   Grabvo QZ Tray Auto-Installer (v5)
+::   Grabvo QZ Tray Auto-Installer (v6)
 ::   ------------------------------------------------------------------------
-::   Installs QZ Tray and registers the Grabvo certificate via override.crt
-::   (the officially-supported "always trust" mechanism).
+::   Installs QZ Tray and registers the Grabvo certificate via
+::   qz-tray-console --whitelist (writes to allowed.dat, the source of
+::   truth QZ Tray and Site Manager both read from), with override.crt
+::   copies as redundant backups.
 ::   All output is pure ASCII - no chcp needed, no encoding issues.
 :: =========================================================================
 
@@ -204,39 +206,91 @@ if "!PEM_OK!"=="0" (
 exit /b 0
 
 :: =========================================================================
-::   STEP 6 - Register the certificate via override.crt
+::   STEP 6 - Register the certificate with QZ Tray
 :: =========================================================================
 :step6
 call :header "6/8" "Registering the certificate with QZ Tray"
 
 set "REGISTER_OK=0"
+set "USER_ALLOWED=%APPDATA%\qz\allowed.dat"
 
+:: Snapshot allowed.dat BEFORE we run the whitelist, so we can prove the
+:: command actually wrote to it. If the file doesn't exist yet, size is 0.
+set "ALLOWED_BEFORE=0"
+if exist "%USER_ALLOWED%" (
+    for %%F in ("%USER_ALLOWED%") do set "ALLOWED_BEFORE=%%~zF"
+)
+
+:: -------------------------------------------------------------------
+:: 6a - PRIMARY: qz-tray-console --whitelist
+:: -------------------------------------------------------------------
+:: The argument is passed as `--whitelist="<path>"` - using the equals
+:: form AND quoting the value, so paths with spaces ("C:\Program Files"
+:: etc.) are passed as a single token. The direct call (no `start`,
+:: no PowerShell Start-Process) keeps us in the same console and lets us
+:: read the real exit code.
+if exist "%QZ_CONSOLE%" (
+    echo   !SL!Registering with QZ Tray...
+
+    "%QZ_CONSOLE%" --whitelist="%CERT_FILE%" >nul 2>&1
+
+    :: The Launch4j wrapper sometimes returns before its Java child has
+    :: finished writing allowed.dat, so give it a moment.
+    timeout /t 2 /nobreak >nul 2>&1
+
+    :: Sweep any lingering console process.
+    taskkill /IM "qz-tray-console.exe" /F >nul 2>&1
+
+    :: Verify allowed.dat grew (any new fingerprint makes it larger).
+    set "ALLOWED_AFTER=0"
+    if exist "%USER_ALLOWED%" (
+        for %%F in ("%USER_ALLOWED%") do set "ALLOWED_AFTER=%%~zF"
+    )
+
+    if !ALLOWED_AFTER! GTR !ALLOWED_BEFORE! (
+        set "REGISTER_OK=1"
+        call :ok "Certificate registered with QZ Tray"
+    ) else (
+        call :warn "Whitelist command didn't change allowed.dat - trying backups"
+    )
+) else (
+    call :warn "qz-tray-console.exe not found - trying backups"
+)
+
+:: -------------------------------------------------------------------
+:: 6b - BACKUP: override.crt in the install directory
+:: -------------------------------------------------------------------
 if exist "%QZ_INSTALL_DIR%" (
     copy /Y "%CERT_FILE%" "%QZ_INSTALL_DIR%\override.crt" >nul 2>&1
     if exist "%QZ_INSTALL_DIR%\override.crt" (
-        set "REGISTER_OK=1"
-        call :ok "Certificate registered"
+        if "!REGISTER_OK!"=="0" set "REGISTER_OK=1"
+        call :ok "Backup registered (install folder)"
     )
 )
 
+:: -------------------------------------------------------------------
+:: 6c - BACKUP: override.crt in ProgramData (all users)
+:: -------------------------------------------------------------------
 if not exist "%PROGRAMDATA%\qz" mkdir "%PROGRAMDATA%\qz" >nul 2>&1
 copy /Y "%CERT_FILE%" "%PROGRAMDATA%\qz\override.crt" >nul 2>&1
 if exist "%PROGRAMDATA%\qz\override.crt" (
     if "!REGISTER_OK!"=="0" set "REGISTER_OK=1"
-    call :ok "Backup registration saved"
+    call :ok "Backup registered (all users)"
 )
 
-set "USER_ALLOWED=%APPDATA%\qz\allowed.dat"
+:: -------------------------------------------------------------------
+:: 6d - Mirror user trust to the machine-wide location
+:: -------------------------------------------------------------------
 if exist "%USER_ALLOWED%" (
     if not exist "%PROGRAMDATA%\qz" mkdir "%PROGRAMDATA%\qz" >nul 2>&1
     copy /Y "%USER_ALLOWED%" "%PROGRAMDATA%\qz\allowed.dat" >nul 2>&1
     if !errorLevel! equ 0 (
-        call :ok "Trust set up for all users"
+        call :ok "Trust mirrored to all users"
     )
 )
 
 if "!REGISTER_OK!"=="0" (
-    call :fail "Could not register the certificate - check permissions"
+    call :fail "Could not register the certificate"
     goto :cleanup
 )
 exit /b 0
@@ -452,6 +506,10 @@ exit /b 0
 :cleanup
 cd /d "%TEMP%" >nul 2>&1
 rd /s /q "%TEMP_DIR%" >nul 2>&1
+echo.
+echo   ============================================================
+echo    Press any key to close this window.
+echo   ============================================================
 echo.
 pause
 endlocal
