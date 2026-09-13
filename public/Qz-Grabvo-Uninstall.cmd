@@ -3,11 +3,11 @@ setlocal EnableExtensions EnableDelayedExpansion
 title Grabvo - QZ Tray Uninstaller
 
 :: =========================================================================
-::   Grabvo QZ Tray Uninstaller (v2 - robust)
+::   Grabvo QZ Tray Uninstaller (v3)
 ::   ------------------------------------------------------------------------
 ::   Removes QZ Tray, its auto-start entries, and the Grabvo certificate
-::   trust. Handles the QZ Tray 2.1.1+ silent-uninstall bug by setting
-::   qz-print_silent=1 and launching the uninstaller DETACHED so it can
+::   trust. Handles the QZ Tray 2.1.1+ silent-uninstall quirk by setting
+::   qz-print_silent=1 and launching the uninstaller detached so it can
 ::   never touch this console. Verifies removal before claiming success.
 ::   100%% ASCII output.
 :: =========================================================================
@@ -56,8 +56,8 @@ set "QZ_USER_DATA=%APPDATA%\qz"
 set "QZ_MACHINE_DATA=%PROGRAMDATA%\qz"
 set "QZ_UNINSTALLER=%QZ_INSTALL_DIR%\uninstall.exe"
 
-:: PowerShell one-liner that kills every QZ Tray process. Uses
-:: Get-CimInstance (WMIC is deprecated on Windows 11 24H2+).
+:: Kill every QZ Tray process. Uses Get-CimInstance because WMIC is
+:: deprecated on Windows 11 24H2+.
 set "PROC_KILL=Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ExecutablePath -like '*QZ Tray*' -or $_.CommandLine -like '*qz-tray.jar*' -or $_.Name -eq 'qz-tray.exe' -or $_.Name -eq 'qz-tray-console.exe' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; Get-Process -Name 'qz-tray','qz-tray-console' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue"
 
 cls
@@ -74,10 +74,10 @@ call :step7
 goto :cleanup
 
 :: =========================================================================
-::   STEP 1 - Kill QZ Tray processes
+::   STEP 1 - Stop QZ Tray processes
 :: =========================================================================
 :step1
-call :header "1/7" "Stopping all QZ Tray processes"
+call :header "1/7" "Stopping QZ Tray"
 powershell -NoProfile -Command "!PROC_KILL!" >nul 2>&1
 timeout /t 2 /nobreak >nul 2>&1
 call :ok "All QZ Tray processes stopped"
@@ -101,21 +101,21 @@ call :ok "Auto-start, service, and scheduled tasks cleared"
 exit /b 0
 
 :: =========================================================================
-::   STEP 3 - Run the uninstaller, DETACHED
+::   STEP 3 - Run the official uninstaller
 :: =========================================================================
 :step3
-call :header "3/7" "Running QZ Tray uninstaller"
+call :header "3/7" "Removing QZ Tray application"
 
 if not exist "%QZ_UNINSTALLER%" (
-    call :warn "No uninstaller found - will wipe folders manually"
+    call :warn "No uninstaller found - will remove folders directly"
     exit /b 0
 )
 
 :: qz-print_silent=1 is the documented workaround for the QZ Tray
-:: 2.1.1+ silent-uninstall respawn bug (GitHub issue #713). Without it,
-:: the /S flag is dropped when the stub respawns itself.
+:: 2.1.1+ silent-uninstall respawn bug (upstream issue #713). Without
+:: it the /S flag is dropped when the stub respawns itself.
 set "qz-print_silent=1"
-echo   !SL!Launching uninstaller (detached, hidden)...
+echo   !SL!Running QZ Tray uninstaller...
 powershell -NoProfile -Command "Start-Process -FilePath '%QZ_UNINSTALLER%' -ArgumentList '/S' -WindowStyle Hidden" >nul 2>&1
 
 :: Poll for up to 60s for the install folder to disappear.
@@ -127,22 +127,22 @@ exit /b 0
 timeout /t 2 /nobreak >nul 2>&1
 set /a POLL+=1
 if not exist "%QZ_INSTALL_DIR%\uninstall.exe" (
-    call :ok "Uninstaller finished"
+    call :ok "QZ Tray removed"
     exit /b 0
 )
 if !POLL! GEQ 30 (
-    call :warn "Uninstaller timed out - forcing cleanup"
+    call :warn "Uninstaller timed out - removing folders directly"
     exit /b 0
 )
 goto :poll_uninstall
 
 :: =========================================================================
-::   STEP 4 - Wipe install folders
+::   STEP 4 - Clean up install folders
 :: =========================================================================
 :step4
-call :header "4/7" "Removing application folders"
+call :header "4/7" "Cleaning up application folders"
 
-:: Kill anything the uninstaller respawned, so file locks release
+:: Kill anything the uninstaller respawned, so file locks release.
 powershell -NoProfile -Command "!PROC_KILL!" >nul 2>&1
 timeout /t 2 /nobreak >nul 2>&1
 
@@ -164,15 +164,15 @@ if exist "%QZ_INSTALL_DIR_X86%" (
 exit /b 0
 
 :: =========================================================================
-::   STEP 5 - Trust data
+::   STEP 5 - Remove certificate trust
 :: =========================================================================
 :step5
-call :header "5/7" "Removing certificate trust data"
+call :header "5/7" "Removing certificate trust"
 
 if exist "%QZ_USER_DATA%" (
     rd /s /q "%QZ_USER_DATA%" >nul 2>&1
     if not exist "%QZ_USER_DATA%" (
-        call :ok "Removed per-user trust: %QZ_USER_DATA%"
+        call :ok "Removed per-user trust data"
     ) else (
         call :warn "Could not remove %QZ_USER_DATA%"
     )
@@ -183,7 +183,7 @@ if exist "%QZ_USER_DATA%" (
 if exist "%QZ_MACHINE_DATA%" (
     rd /s /q "%QZ_MACHINE_DATA%" >nul 2>&1
     if not exist "%QZ_MACHINE_DATA%" (
-        call :ok "Removed machine-wide trust: %QZ_MACHINE_DATA%"
+        call :ok "Removed machine-wide trust data"
     ) else (
         call :warn "Could not remove %QZ_MACHINE_DATA%"
     )
@@ -260,7 +260,7 @@ echo   %AM%%B%This will remove QZ Tray and its trust data from%R%
 echo   %AM%%B%this computer. You can always reinstall with the%R%
 echo   %AM%%B%Grabvo installer if you change your mind.%R%
 echo.
-call :ok "Starting uninstall in 3 seconds..."
+call :ok "Starting in 3 seconds..."
 timeout /t 3 /nobreak >nul 2>&1
 exit /b 0
 
@@ -282,40 +282,53 @@ exit /b 0
 echo   %RD%%B%[XX]%R%   %RD%%B%%~1%R%
 exit /b 1
 
+:: =========================================================================
+::   COMPLETE - clear screen, show Grabvo logo, then result
+:: =========================================================================
 :complete_ok
+cls
 echo.
-echo   %PU%%B%============================================================%R%
+echo   %GR%%B%============================================================%R%
 echo.
-echo   %GR%%B%        #   # #   # #  ####  #     ####  ####  ####%R%
-echo   %GR%%B%        #   # ##  # #  #     #     #  #  #     #   #%R%
-echo   %GR%%B%        #   # # # # #   ##   #     #  #  ###   ####%R%
-echo   %GR%%B%        #   # #  ## #     #  #     #  #  #     # #%R%
-echo   %GR%%B%         ###  #   # #  ###   ####  ####  ####  #  #%R%
+echo   %PU%%B%        ####  ####     #    ####   #   #   ####%R%
+echo   %PU%%B%        #     #   #   # #   #   #  #   #  #   #%R%
+echo   %PU%%B%        # ### ####   ##### ####    #   #  #   #%R%
+echo   %PU%%B%        #   # #  #   #   # #   #    # #   #   #%R%
+echo   %PU%%B%        ### # #   #  #   # ####      #     ####%R%
 echo.
-echo   %GR%%B%             UNINSTALL COMPLETE%R%
+echo   %GR%%B%              UNINSTALL COMPLETE%R%
+echo   %SL%      QZ Tray has been removed from this computer%R%
 echo.
-echo   %PU%%B%============================================================%R%
+echo   %GR%%B%============================================================%R%
 echo.
 echo   %WH%QZ Tray and the Grabvo certificate trust have been%R%
 echo   %WH%removed from this computer.%R%
 echo.
 echo   %SL%Note: the QZ Tray system tray icon may remain until you%R%
-echo   %SL%log out and back in. That's normal on Windows - Windows%R%
-echo   %SL%caches tray icons for a few minutes after the app exits.%R%
+echo   %SL%log out and back in. That is normal on Windows - Windows%R%
+echo   %SL%caches tray icons for a few minutes after an app exits.%R%
 echo.
 exit /b 0
 
 :complete_warn
+cls
 echo.
 echo   %AM%%B%============================================================%R%
+echo.
+echo   %PU%%B%        ####  ####     #    ####   #   #   ####%R%
+echo   %PU%%B%        #     #   #   # #   #   #  #   #  #   #%R%
+echo   %PU%%B%        # ### ####   ##### ####    #   #  #   #%R%
+echo   %PU%%B%        #   # #  #   #   # #   #    # #   #   #%R%
+echo   %PU%%B%        ### # #   #  #   # ####      #     ####%R%
 echo.
 echo   %AM%%B%          CLEANUP FINISHED WITH WARNINGS%R%
+echo   %SL%      Some QZ Tray files could not be removed%R%
 echo.
 echo   %AM%%B%============================================================%R%
 echo.
-echo   %WH%Some QZ Tray files or processes could not be removed.%R%
-echo   %WH%This usually means QZ Tray was still running when the%R%
-echo   %WH%script started.%R%
+echo   %WH%Some QZ Tray files or processes are still present on%R%
+echo   %WH%this computer. This usually means QZ Tray was still%R%
+echo   %WH%running when the script started.%R%
 echo.
 echo   %SL%Try this:%R%
 echo   %SL%  1. Right-click the QZ Tray tray icon and choose Exit%R%
@@ -329,7 +342,6 @@ exit /b 0
 :: =========================================================================
 :cleanup
 cd /d "%TEMP%" >nul 2>&1
-echo.
 echo   ============================================================
 echo    Press any key to close this window.
 echo   ============================================================
