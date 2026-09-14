@@ -26,7 +26,7 @@ export const receiptConfig: ReceiptConfig = {
     mode: "raw",
 
     raw: {
-      language: "ESC-POS",
+      language: "ESCPOS",
       quantization: "luma",
       // ← CHANGED: was 128. 160 makes text noticeably darker/sharper on
       //   thermal paper. Try 150–180; higher = bolder, lower = lighter.
