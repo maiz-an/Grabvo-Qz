@@ -3,7 +3,7 @@
 **Live:** <https://qz.grabvo.app> - see exactly how a **Grabvo's**
 receipt or kitchen ticket will print, then set up **silent** 80mm printing
 over **[QZ Tray](https://qz.io)**: connect from the browser, list installed
-printers, and print a **receipt** or a kitchen/order **ticket** — no
+printers, and print a **receipt** or a kitchen/order **ticket** - no
 "Allow / Block" popup after the first handshake - using a signed
 certificate.
 
