@@ -318,7 +318,8 @@ export default function App() {
 
         {/* ---------------------------------------------
             Global footer — always visible on every tab.
-            A quiet support line, matching the app's overall tone.
+            A quiet support line, matching the app's overall tone, plus
+            the app version (injected from package.json at build time).
             --------------------------------------------- */}
         <footer className="mt-10 flex flex-col items-center gap-2 text-center">
           <div className="flex items-center gap-2 text-[11.5px] leading-relaxed text-slate-400">
@@ -338,7 +339,7 @@ export default function App() {
           </div>
 
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-300">
-            Grabvo · QZ Print Setup
+            Grabvo · QZ Print Setup · v{__APP_VERSION__}
           </p>
         </footer>
       </div>

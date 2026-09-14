@@ -122,6 +122,10 @@ export function blobToDataUrl(blob: Blob): Promise<string> {
 
 /** Inline every remote <img src="http…"> in the HTML as a data URI. */
 export async function inlineExternalImages(html: string): Promise<string> {
+  // Fast path — nothing remote to fetch, skip the DOM parse entirely.
+  // The vast majority of prints hit this branch.
+  if (!/<img[^>]+src=["']https?:/i.test(html)) return html;
+
   const doc = new DOMParser().parseFromString(html, "text/html");
   const imgs = Array.from(doc.querySelectorAll("img")).filter((img) =>
     /^https?:/i.test(img.getAttribute("src") || "")
@@ -174,65 +178,140 @@ export function measureReceiptHeightMm(html: string, widthMm: number): Promise<n
  * Client-side rasterization — render the receipt HTML to a PNG in the
  * browser itself, so QZ Tray never has to render any HTML/CSS at all.
  *
- * This is what actually fixes two different problems at once:
- *   1. "Prints blank paper forever" — that was QZ's own separate
- *      embedded renderer (`type: "raw", format: "html"`) choking on
- *      this app's CSS and producing corrupt/empty raster data. QZ now
- *      only ever encodes an already-finished bitmap — a much simpler,
- *      far more reliable job for it.
- *   2. "Different printer, different look" — every printer now
- *      receives the exact same bitmap, generated once, the same way,
- *      regardless of which printer it's headed to.
+ * Why this is done the way it is (learn from a real bug):
  *
- * How: the receipt is loaded into a real, hidden, same-page <iframe>
- * (genuine browser layout/paint — the same engine that renders the
- * live preview correctly), then html2canvas walks that live, rendered
- * DOM and paints it directly onto a <canvas> using the Canvas 2D API.
+ *   An earlier version loaded the receipt into an <iframe srcdoc>
+ *   marked visibility:hidden and 10px tall, then ran html2canvas on
+ *   the iframe's <body>. On production Chrome this reliably throws
  *
- * (An earlier version used an SVG <foreignObject> + <img> to rasterize
- * instead. That technique is fundamentally unusable for this: every
- * browser permanently marks a canvas "tainted" after drawing an SVG
- * image that contains a <foreignObject> — even from same-origin,
- * locally-generated content — as a deliberate privacy safeguard, and
- * a tainted canvas can never be exported via toDataURL()/toBlob(). No
- * config fixes that; it's not a bug, it's intentional browser policy.
- * html2canvas sidesteps it entirely by never loading an <img> at all —
- * it paints straight from the DOM, so nothing is ever "tainted".)
+ *       Error: Document is not attached to a Window
+ *
+ *   html2canvas walks the target element's ownerDocument.defaultView
+ *   to do its work, and a srcdoc iframe that never finished attaching
+ *   its browsing context can leave defaultView === null at that
+ *   instant — html2canvas then refuses to proceed.
+ *
+ * The fix:
+ *   - No iframe. The receipt is rendered into a scoped <div> inside
+ *     the *main* document — the exact case html2canvas is built and
+ *     tested for.
+ *   - The receipt's own CSS is preserved by rewriting its html/body/
+ *     :root selectors to target that scoped div. Same visual result,
+ *     no iframe isolation needed.
+ *   - The host is hidden by being pushed 10 000 px off-screen, NOT by
+ *     visibility:hidden or opacity:0 — html2canvas treats both of
+ *     those as "paint nothing" and would return a blank canvas.
+ *
+ * This is also what makes the Android story trivial later: the
+ * front-end hands whatever bridge is on the other end a finished PNG,
+ * so the bridge only has to encode ESC/POS — no HTML rendering, no
+ * platform-specific CSS engine.
  * ----------------------------------------------------------------- */
+
+/**
+ * Cheap memoization for rasterized receipts. Printing the same KOT
+ * five times a minute should not cost five html2canvas runs — only
+ * the first one does. Bounded so a long-lived POS session can't grow
+ * without limit; 32 entries covers every receipt/ticket variant.
+ */
+const rasterCache = new Map<string, string>();
+const RASTER_CACHE_MAX = 32;
+
+function rasterCacheKey(html: string, widthMm: number, density: number): string {
+  // djb2 hash — collision risk here is irrelevant because the worst
+  // case of a collision is a cache miss (just re-rasterize).
+  let h = 5381;
+  for (let i = 0; i < html.length; i++) {
+    h = ((h << 5) + h) ^ html.charCodeAt(i);
+  }
+  return `${widthMm}|${density}|${(h >>> 0).toString(36)}|${html.length}`;
+}
+
 async function rasterizeHtmlToPngBase64(
   html: string,
   widthMm: number,
   density: number
 ): Promise<string> {
-  const iframe = document.createElement("iframe");
-  iframe.style.cssText =
-    "position:fixed;left:-20000px;top:0;border:0;visibility:hidden;" +
-    `width:${widthMm}mm;height:10px;`;
+  const key = rasterCacheKey(html, widthMm, density);
+  const cached = rasterCache.get(key);
+  if (cached) return cached;
 
-  const frameDoc = await new Promise<Document>((resolve, reject) => {
-    iframe.onload = () => {
-      const d = iframe.contentDocument;
-      if (d) resolve(d);
-      else reject(new Error("Could not access the print render frame"));
-    };
-    document.body.appendChild(iframe);
-    iframe.srcdoc = html;
+  const parsed = new DOMParser().parseFromString(html, "text/html");
+
+  // Unique per-call scope so the receipt's CSS can never leak into the
+  // app, and the app's Tailwind base can never override the receipt.
+  const scopeId = "qz-render-" + Math.random().toString(36).slice(2);
+  const scopeSel = "#" + scopeId;
+
+  // Collect every <style> block from the receipt and rewrite its
+  // html / body / :root selectors to target our scoped div. This is
+  // the only reason the receipt's own styling survives at all — with
+  // a <div> host there is no <html> or <body> for those rules to hit.
+  let css = "";
+  parsed.querySelectorAll("style").forEach((s) => {
+    css += (s.textContent || "") + "\n";
   });
 
+  css = css
+    .replace(/:root\b/g, scopeSel)
+    .replace(
+      /(^|[\s,{])(html|body)(?=[\s,{:]|$)/gm,
+      (_m, pre: string) => pre + scopeSel
+    );
+
+  // The offscreen host. Hidden by position, never by visibility or
+  // opacity — both of those make html2canvas paint a transparent
+  // canvas, i.e. a "successful" print of nothing.
+  const host = document.createElement("div");
+  host.id = scopeId;
+  host.setAttribute("aria-hidden", "true");
+  host.style.cssText = [
+    "position: fixed",
+    "left: -10000px",
+    "top: 0",
+    `width: ${widthMm}mm`,
+    "background: #ffffff",
+    "pointer-events: none",
+    "z-index: -2147483647"
+  ].join(";");
+
+  const styleEl = document.createElement("style");
+  styleEl.textContent = css;
+  host.appendChild(styleEl);
+
+  // Copy <body>'s attributes (class, style, dir, lang, …) onto an
+  // inner wrapper so any `.receipt { … }` style rules still apply.
+  const inner = document.createElement("div");
+  if (parsed.body) {
+    for (const attr of Array.from(parsed.body.attributes)) {
+      inner.setAttribute(attr.name, attr.value);
+    }
+    inner.innerHTML = parsed.body.innerHTML;
+  }
+  host.appendChild(inner);
+
+  document.body.appendChild(host);
+
   try {
-    // Give fonts/images a beat to settle — same small delay the live
-    // preview already relies on before it measures/fits itself.
-    await new Promise((r) => setTimeout(r, 60));
+    // Wait for webfonts (Inter, Tahoma, etc.) and inlined logos so the
+    // first paint after page load is the final, fully typeset receipt.
+    // Without this, the very first print can come out slightly faded
+    // or mis-measured.
+    if (document.fonts && "ready" in document.fonts) {
+      try {
+        await document.fonts.ready;
+      } catch {
+        /* ignore — some browsers reject this promise */
+      }
+    }
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
 
-    const target = frameDoc.body;
-    if (!target) throw new Error("Receipt HTML has no <body>");
-
-    const canvas = await html2canvas(target, {
-      // 96 = the CSS spec's fixed reference pixel density (what the
-      // HTML naturally lays out at). Scaling up to the printer's real
-      // DPI here means html2canvas paints text/lines genuinely crisp
-      // at that resolution, rather than rendering small and blurrily
-      // stretching afterward.
+    const canvas = await html2canvas(host, {
+      // 96 is the CSS spec's reference pixel density (what the HTML
+      // naturally lays out at). Scaling up to the printer's real DPI
+      // here means html2canvas paints text/lines genuinely crisp at
+      // that resolution, rather than rendering small and then
+      // blurrily stretching afterward.
       scale: density / 96,
       backgroundColor: "#ffffff",
       useCORS: true,
@@ -240,9 +319,18 @@ async function rasterizeHtmlToPngBase64(
     });
 
     const dataUrl = canvas.toDataURL("image/png");
-    return dataUrl.split(",")[1] || "";
+    const png = dataUrl.split(",")[1] || "";
+
+    // Bounded cache insert.
+    if (rasterCache.size >= RASTER_CACHE_MAX) {
+      const oldest = rasterCache.keys().next().value;
+      if (oldest !== undefined) rasterCache.delete(oldest);
+    }
+    rasterCache.set(key, png);
+
+    return png;
   } finally {
-    iframe.remove();
+    host.remove();
   }
 }
 
