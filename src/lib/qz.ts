@@ -15,12 +15,18 @@ export interface QzErrorInfo {
   raw: string;
 }
 
+/* -----------------------------------------------------------------
+ * QZ accessor
+ * ----------------------------------------------------------------- */
 export function getQz(): QzGlobal {
   const qz = window.qz;
   if (!qz) throw new Error("QZ Tray client not loaded (qz-tray.js missing?)");
   return qz;
 }
 
+/* -----------------------------------------------------------------
+ * Security — call once before any QZ request
+ * ----------------------------------------------------------------- */
 export function setupQzSecurity(): void {
   const qz = window.qz;
   if (!qz) {
@@ -53,6 +59,9 @@ export function setupQzSecurity(): void {
   qz.security.setSignatureAlgorithm("SHA512");
 }
 
+/* -----------------------------------------------------------------
+ * Connection & printer enumeration
+ * ----------------------------------------------------------------- */
 export async function connectQz(): Promise<void> {
   const qz = getQz();
   if (qz.websocket.isActive()) return;
@@ -65,6 +74,9 @@ export async function listPrinters(): Promise<string[]> {
   return Array.isArray(printers) ? printers : [];
 }
 
+/* -----------------------------------------------------------------
+ * Error classification
+ * ----------------------------------------------------------------- */
 export function humanizeQzError(err: unknown): QzErrorInfo {
   const msg = String(
     (err as { message?: string })?.message ?? err ?? ""
@@ -92,6 +104,9 @@ export function humanizeQzError(err: unknown): QzErrorInfo {
   };
 }
 
+/* -----------------------------------------------------------------
+ * HTML helpers
+ * ----------------------------------------------------------------- */
 export function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const fr = new FileReader();
@@ -154,19 +169,47 @@ export function measureReceiptHeightMm(
   });
 }
 
-/* -----------------------------------------------------------------
- * Rasterization — unchanged from the previous fix, plus one CSS tweak
- * that materially improves printed text sharpness (see below).
- * ----------------------------------------------------------------- */
+/* =================================================================
+ * Shared print-document CSS.
+ *
+ * This block is applied to the printed raster AND to the preview, so
+ * what you see in the modal is byte-for-byte what hits the paper.
+ *
+ * The sharpening rules matter: html2canvas inherits the browser's
+ * default font smoothing, which produces a grey halo around every
+ * glyph. After luma thresholding at 140 that halo either fattens the
+ * glyph (muddy) or thins it (faded). Disabling smoothing forces
+ * pixel-snapped edges, so the threshold has clean black/white to work
+ * with and the printed text comes out crisp at every size.
+ * ================================================================= */
+const PRINT_CSS = `
+  html, body, :root {
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-font-smoothing: none !important;
+    -moz-osx-font-smoothing: unset !important;
+    text-rendering: geometricPrecision !important;
+    font-synthesis: none !important;
+  }
+  body > * {
+    -webkit-font-smoothing: none !important;
+    -moz-osx-font-smoothing: unset !important;
+  }
+  *, *::before, *::after {
+    -webkit-font-smoothing: none !important;
+    -moz-osx-font-smoothing: unset !important;
+    text-rendering: geometricPrecision !important;
+  }
+`;
 
+/* =================================================================
+ * Bounded raster cache.
+ * Same receipt printed twice = one html2canvas pass.
+ * ================================================================= */
 const rasterCache = new Map<string, string>();
 const RASTER_CACHE_MAX = 32;
 
-function rasterCacheKey(
-  html: string,
-  widthMm: number,
-  density: number
-): string {
+function rasterCacheKey(html: string, widthMm: number, density: number): string {
   let h = 5381;
   for (let i = 0; i < html.length; i++) {
     h = ((h << 5) + h) ^ html.charCodeAt(i);
@@ -174,6 +217,23 @@ function rasterCacheKey(
   return `${widthMm}|${density}|${(h >>> 0).toString(36)}|${html.length}`;
 }
 
+/* =================================================================
+ * Client-side rasterization.
+ *
+ * The receipt is rendered into an off-screen <div> in the *main*
+ * document — never an iframe. The receipt's own CSS survives because
+ * we rewrite its html/body/:root selectors to target that scoped div.
+ *
+ * An earlier version used <iframe srcdoc>; on production Chrome the
+ * srcdoc iframe could finish loading before its browsing context was
+ * fully attached, and html2canvas then threw:
+ *
+ *     Error: Document is not attached to a Window
+ *
+ * The div approach has none of that. html2canvas walks a real,
+ * attached element in the main window — the exact use case it's built
+ * for.
+ * ================================================================= */
 async function rasterizeHtmlToPngBase64(
   html: string,
   widthMm: number,
@@ -187,6 +247,10 @@ async function rasterizeHtmlToPngBase64(
   const scopeId = "qz-render-" + Math.random().toString(36).slice(2);
   const scopeSel = "#" + scopeId;
 
+  // Collect the receipt's own <style> blocks and rewrite html/body/:root
+  // selectors to target our scoped div. This is the ONLY transformation
+  // applied — the CSS otherwise stays exactly as the template wrote it,
+  // which is what guarantees preview === print.
   let css = "";
   parsed.querySelectorAll("style").forEach((s) => {
     css += (s.textContent || "") + "\n";
@@ -199,29 +263,10 @@ async function rasterizeHtmlToPngBase64(
       (_m, pre: string) => pre + scopeSel
     );
 
-  // ---------------------------------------------------------------
-  // SHARPER TEXT FOR THERMAL PRINT
-  // ---------------------------------------------------------------
-  // html2canvas inherits the browser's default font smoothing, which
-  // produces grey edge pixels around glyphs. After thresholding, those
-  // greys either become black (fattening the glyph, so it looks smudged)
-  // or become white (thinning it, so it looks faded) — either way, a
-  // lot of detail is lost.
-  //
-  // Disabling smoothing inside the offscreen render forces html2canvas
-  // to draw pixel-snapped glyph edges with no grey halo. The threshold
-  // then has clean black/white pixels to work with, and the printed
-  // text comes out noticeably crisper — especially important for small
-  // sizes, where a 1-pixel grey halo can eat an entire stroke.
-  // ---------------------------------------------------------------
-  const sharpeningCss = `
-    ${scopeSel}, ${scopeSel} * {
-      -webkit-font-smoothing: none !important;
-      -moz-osx-font-smoothing: unset !important;
-      text-rendering: geometricPrecision !important;
-      font-synthesis: none !important;
-    }
-  `;
+  // Shared sharpening rules, scoped to our host.
+  const scopedPrintCss = PRINT_CSS
+    .replace(/html,\s*body,\s*:root/g, scopeSel)
+    .replace(/\bbody\b/g, scopeSel);
 
   const host = document.createElement("div");
   host.id = scopeId;
@@ -237,7 +282,7 @@ async function rasterizeHtmlToPngBase64(
   ].join(";");
 
   const styleEl = document.createElement("style");
-  styleEl.textContent = css + "\n" + sharpeningCss;
+  styleEl.textContent = css + "\n" + scopedPrintCss;
   host.appendChild(styleEl);
 
   const inner = document.createElement("div");
@@ -283,12 +328,8 @@ async function rasterizeHtmlToPngBase64(
   }
 }
 
-/* -----------------------------------------------------------------
- * ESC/POS paper-cut helper
- * -----------------------------------------------------------------
- * Builds the raw-byte sequence for a feed-then-cut. Sent as a separate
- * data item AFTER the image so the printer finishes rendering before
- * the cutter fires.
+/* =================================================================
+ * ESC/POS paper-cut helper.
  *
  * Byte layout:
  *   ESC d n    1B 64 <n>    feed n lines (0–255)
@@ -296,7 +337,7 @@ async function rasterizeHtmlToPngBase64(
  *
  * If feedLines is 0, the ESC d byte is omitted — you get a bare cut,
  * which is almost never what you want, but is available.
- * ----------------------------------------------------------------- */
+ * ================================================================= */
 function buildCutCommand(
   type: "full" | "partial",
   feedLines: number
@@ -310,6 +351,9 @@ function buildCutCommand(
   return feed + cut;
 }
 
+/* =================================================================
+ * Print pipeline
+ * ================================================================= */
 export interface PrintOptions {
   printerName: string;
   html: string;
@@ -340,9 +384,6 @@ export async function printHtml({
       { type: "pixel", format: "html", flavor: "plain", data: inlined },
     ];
 
-    // The pixel fallback still benefits from a cut if the target printer
-    // has a cutter (rare — the pixel path is for PDF/laser printers —
-    // but harmless if the printer ignores ESC/POS commands).
     if (printer.cut?.enabled) {
       data.push({
         type: "raw",
@@ -382,9 +423,6 @@ export async function printHtml({
     },
   ];
 
-  // Feed + cut, appended as its own raw command. QZ Tray sends the
-  // array in order, so the printer renders the bitmap fully before
-  // the cut bytes arrive.
   if (printer.cut?.enabled) {
     data.push({
       type: "raw",
@@ -397,15 +435,14 @@ export async function printHtml({
   await qz.print(config, data);
 }
 
+/* =================================================================
+ * Preview parity.
+ *
+ * The preview iframe gets the identical PRINT_CSS the print path
+ * injects — same rules, same cascade, same engine. Preview and print
+ * now differ only in *where* the HTML renders, never *what* it is.
+ * ================================================================= */
 export function withPreviewCentering(html: string): string {
-  const fix = `
-    <style id="__preview_center__">
-      body {
-        margin: 0 auto !important;
-        padding-left: 2mm !important;
-        padding-right: 2mm !important;
-      }
-    </style>
-  `;
-  return html.replace("</head>", fix + "</head>");
+  const injection = `<style id="__print_parity__">${PRINT_CSS}</style>`;
+  return html.replace("</head>", injection + "</head>");
 }

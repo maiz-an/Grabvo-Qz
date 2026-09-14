@@ -30,7 +30,7 @@ export const receiptConfig: ReceiptConfig = {
       quantization: "luma",
       // ← CHANGED: was 128. 160 makes text noticeably darker/sharper on
       //   thermal paper. Try 150–180; higher = bolder, lower = lighter.
-      threshold: 160,
+      threshold: 140,
       dotDensity: "single",
       imageEncoding: "gs_v_0",
       forceRaw: true,
@@ -94,10 +94,10 @@ export const receiptConfig: ReceiptConfig = {
     paddingLeftMm: "3mm",
     paddingRightMm: "3mm",
     // ← CHANGED: was "4mm".
-    topPadding: "2mm",
+    topPadding: "1mm",
     // ← CHANGED: was "5mm". Kept a touch larger so the cut-feed has
     //   clean white space below the last line.
-    bottomPadding: "3mm",
+    bottomPadding: "2mm",
 
     arabicFont:
       "'Tahoma', 'Segoe UI', 'Simplified Arabic', 'Traditional Arabic', 'Noto Naskh Arabic', 'Arial', sans-serif",
@@ -244,9 +244,9 @@ export const receiptConfig: ReceiptConfig = {
       // ← CHANGED: was "4mm".
       paddingRightMm: "3mm",
       // ← CHANGED: was "5mm".
-      topPadding: "3mm",
+      topPadding: "1mm",
       // ← CHANGED: was "5mm".
-      bottomPadding: "3mm",
+      bottomPadding: "2mm",
 
       baseFont:
         "'Segoe UI', 'Helvetica Neue', 'Inter', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif",
