@@ -678,10 +678,11 @@ it's running against the local Express server or against Vercel.
 - `printHtml()` — the print pipeline, branching on `printer.mode`:
   - **`"raw"` (default, every real thermal printer)** — the receipt is
     rasterized to a PNG **in the browser itself first**
-    (`rasterizeHtmlToPngBase64()`, using an SVG `<foreignObject>` so it's
-    real browser layout/paint — the exact same engine that renders the
-    live preview correctly — not a separate implementation), then sent
-    as `{ type: "raw", format: "image", options: { language: "ESCPOS",
+    (`rasterizeHtmlToPngBase64()`, using the
+    [html2canvas](https://html2canvas.hertzen.com/) library on a hidden,
+    real, same-page `<iframe>` — genuine browser layout/paint, the exact
+    same engine that renders the live preview correctly), then sent as
+    `{ type: "raw", format: "image", options: { language: "ESCPOS",
     quantization, threshold, dotDensity, imageEncoding } }`. QZ never
     renders any HTML/CSS itself here — it only encodes an already-
     finished bitmap into ESC/POS raster commands, then (`forceRaw: true`)
@@ -691,6 +692,15 @@ it's running against the local Express server or against Vercel.
     printer, different spacing/blur"), and QZ's own separate embedded
     HTML renderer — which choked on this app's CSS and printed blank
     pages forever — is out of the picture completely.
+    (An earlier version rasterized via an SVG `<foreignObject>` + `<img>`
+    instead of html2canvas. Don't go back to that — every browser
+    permanently taints a canvas after drawing an SVG image containing a
+    `<foreignObject>`, even from same-origin content, which makes
+    `canvas.toDataURL()` throw `SecurityError: Tainted canvases may not
+    be exported`. It's intentional browser privacy policy, not a bug,
+    and no config option works around it. html2canvas paints straight
+    from the DOM instead of loading an `<img>`, so nothing is ever
+    tainted.)
   - **`"pixel"` (fallback, non-ESC/POS printers only)** — the old
     driver-based path: `measureReceiptHeightMm()` renders the HTML in a
     hidden off-screen iframe to estimate the physical height, then
@@ -779,11 +789,27 @@ sending `{ type: "raw", format: "html" }` handed the receipt's HTML/CSS to
 your actual browser — and it choked on this app's CSS, producing corrupt
 raster data that some printers interpreted as an endless blank feed. The
 fix was to stop asking QZ to render anything at all: the receipt is now
-rasterized to a finished PNG in the browser itself
-(`rasterizeHtmlToPngBase64()` in `lib/qz.ts` — the same rendering engine
-that draws the live preview correctly), and only that already-finished
-bitmap is handed to QZ as `{ type: "raw", format: "image" }`. If you're
-running an older copy of `lib/qz.ts` and see this, update it.
+rasterized to a finished PNG in the browser itself, via
+[html2canvas](https://html2canvas.hertzen.com/)
+(`rasterizeHtmlToPngBase64()` in `lib/qz.ts`), and only that already-
+finished bitmap is handed to QZ as `{ type: "raw", format: "image" }`. If
+you're running an older copy of `lib/qz.ts` and see this, update it.
+
+### `SecurityError: Tainted canvases may not be exported`
+
+This was also a real bug, from the version right after the one above:
+that version rasterized the receipt via an SVG `<foreignObject>` + `<img>`
+instead of html2canvas. Every browser permanently marks a canvas
+"tainted" after anything is drawn onto it from an SVG image containing a
+`<foreignObject>` — even fully same-origin, locally-generated content —
+as a deliberate privacy safeguard, and a tainted canvas can never be
+exported via `toDataURL()`/`toBlob()`. This isn't a bug in that code and
+no option/flag works around it — it's intentional, permanent browser
+policy. The fix was switching to html2canvas, which paints straight from
+the live DOM instead of loading an `<img>`, so nothing is ever tainted.
+If you're running an older copy of `lib/qz.ts` and see this exact error,
+update it — and run `npm install` afterward, since this fix adds the
+`html2canvas` package as a new dependency.
 
 ### The same receipt prints differently on different printers
 

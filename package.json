@@ -1,7 +1,7 @@
 {
   "name": "grabvo-qz",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Grabvo Print - silent 80mm receipt/ticket printing over QZ Tray for Grabvo. Preview exactly how receipts and kitchen tickets print, and set up silent printing with a signed certificate. Works locally (Express) and on Vercel (serverless).",
   "author": "maiz-an",
@@ -29,6 +29,7 @@
   "dependencies": {
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "html2canvas": "^1.4.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

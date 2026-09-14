@@ -1,5 +1,6 @@
 import type { QzGlobal } from "@/types/qz";
 import type { PrinterConfig } from "@/config/types";
+import html2canvas from "html2canvas";
 
 declare global {
   interface Window {
@@ -170,106 +171,78 @@ export function measureReceiptHeightMm(html: string, widthMm: number): Promise<n
 }
 
 /* -----------------------------------------------------------------
- * Client-side rasterization — render the receipt HTML to a PNG using
- * the browser's OWN real rendering engine (the same one that draws
- * the live preview correctly), instead of handing raw HTML to QZ
- * Tray's separate embedded renderer.
+ * Client-side rasterization — render the receipt HTML to a PNG in the
+ * browser itself, so QZ Tray never has to render any HTML/CSS at all.
  *
- * This is the actual fix for two different problems at once:
- *   1. "Prints blank paper forever" — that was QZ's own HTML→ESC/POS
- *      conversion (`type: 'raw', format: 'html'`) choking on this
- *      app's CSS and producing corrupt/empty raster data. QZ's raw
- *      printer never renders anything now — it only encodes an
- *      already-finished bitmap, which is a much simpler, far more
- *      reliable job for it.
+ * This is what actually fixes two different problems at once:
+ *   1. "Prints blank paper forever" — that was QZ's own separate
+ *      embedded renderer (`type: "raw", format: "html"`) choking on
+ *      this app's CSS and producing corrupt/empty raster data. QZ now
+ *      only ever encodes an already-finished bitmap — a much simpler,
+ *      far more reliable job for it.
  *   2. "Different printer, different look" — every printer now
- *      receives the exact same bitmap, generated once, the exact same
- *      way, regardless of which printer it's headed to.
+ *      receives the exact same bitmap, generated once, the same way,
+ *      regardless of which printer it's headed to.
  *
- * Technique: wrap the receipt's real <style>/<body> in an SVG
- * <foreignObject> (this uses actual browser layout/paint — not a
- * re-implementation like some screenshot libraries use), rendered at
- * the printer's real DPI via the viewBox→width/height scale, so text
- * comes out crisp instead of being rendered small and then blurrily
- * upscaled.
+ * How: the receipt is loaded into a real, hidden, same-page <iframe>
+ * (genuine browser layout/paint — the same engine that renders the
+ * live preview correctly), then html2canvas walks that live, rendered
+ * DOM and paints it directly onto a <canvas> using the Canvas 2D API.
+ *
+ * (An earlier version used an SVG <foreignObject> + <img> to rasterize
+ * instead. That technique is fundamentally unusable for this: every
+ * browser permanently marks a canvas "tainted" after drawing an SVG
+ * image that contains a <foreignObject> — even from same-origin,
+ * locally-generated content — as a deliberate privacy safeguard, and
+ * a tainted canvas can never be exported via toDataURL()/toBlob(). No
+ * config fixes that; it's not a bug, it's intentional browser policy.
+ * html2canvas sidesteps it entirely by never loading an <img> at all —
+ * it paints straight from the DOM, so nothing is ever "tainted".)
  * ----------------------------------------------------------------- */
 async function rasterizeHtmlToPngBase64(
   html: string,
   widthMm: number,
-  heightMm: number,
   density: number
 ): Promise<string> {
-  const MM_PER_INCH = 25.4;
-  const CSS_DPI = 96; // the CSS spec's fixed reference pixel density — this
-  // is just the coordinate system the HTML lays out in, not the final
-  // output resolution (that's `density`, applied below via the SVG's
-  // width/height vs. viewBox scale).
+  const iframe = document.createElement("iframe");
+  iframe.style.cssText =
+    "position:fixed;left:-20000px;top:0;border:0;visibility:hidden;" +
+    `width:${widthMm}mm;height:10px;`;
 
-  const nativeWidthPx = Math.max(1, Math.round((widthMm / MM_PER_INCH) * CSS_DPI));
-  const nativeHeightPx = Math.max(1, Math.round((heightMm / MM_PER_INCH) * CSS_DPI));
-  const targetWidthPx = Math.max(1, Math.round((widthMm / MM_PER_INCH) * density));
-  const targetHeightPx = Math.max(1, Math.round((heightMm / MM_PER_INCH) * density));
-
-  const doc = new DOMParser().parseFromString(html, "text/html");
-
-  // Combine every <style> block and move it to the very top of <body>,
-  // so it travels with the body when we serialize just that below (and
-  // so we don't have to worry about anything else in <head>).
-  const combinedCss = Array.from(doc.querySelectorAll("style"))
-    .map((s) => s.textContent || "")
-    .join("\n");
-  const styleEl = doc.createElement("style");
-  styleEl.textContent = combinedCss;
-  if (doc.body) {
-    doc.body.insertBefore(styleEl, doc.body.firstChild);
-  }
-
-  // XMLSerializer — not innerHTML — because this gets embedded in an
-  // SVG document below, which is parsed as strict XML. innerHTML
-  // happily emits HTML-legal-but-XML-illegal markup (e.g. `<img ...>`
-  // without a closing slash), which would silently fail to load as an
-  // image. XMLSerializer produces well-formed, self-closed, properly
-  // namespaced/escaped XML from the exact same DOM.
-  const bodyXml = doc.body
-    ? new XMLSerializer().serializeToString(doc.body)
-    : '<body xmlns="http://www.w3.org/1999/xhtml"></body>';
-
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg"
-       viewBox="0 0 ${nativeWidthPx} ${nativeHeightPx}"
-       width="${targetWidthPx}" height="${targetHeightPx}">
-    <foreignObject x="0" y="0" width="${nativeWidthPx}" height="${nativeHeightPx}">
-      ${bodyXml}
-    </foreignObject>
-  </svg>`;
-
-  const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(svgBlob);
+  const frameDoc = await new Promise<Document>((resolve, reject) => {
+    iframe.onload = () => {
+      const d = iframe.contentDocument;
+      if (d) resolve(d);
+      else reject(new Error("Could not access the print render frame"));
+    };
+    document.body.appendChild(iframe);
+    iframe.srcdoc = html;
+  });
 
   try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error("Failed to rasterize receipt HTML"));
-      image.src = url;
+    // Give fonts/images a beat to settle — same small delay the live
+    // preview already relies on before it measures/fits itself.
+    await new Promise((r) => setTimeout(r, 60));
+
+    const target = frameDoc.body;
+    if (!target) throw new Error("Receipt HTML has no <body>");
+
+    const canvas = await html2canvas(target, {
+      // 96 = the CSS spec's fixed reference pixel density (what the
+      // HTML naturally lays out at). Scaling up to the printer's real
+      // DPI here means html2canvas paints text/lines genuinely crisp
+      // at that resolution, rather than rendering small and blurrily
+      // stretching afterward.
+      scale: density / 96,
+      backgroundColor: "#ffffff",
+      useCORS: true,
+      logging: false
     });
-
-    const canvas = document.createElement("canvas");
-    canvas.width = targetWidthPx;
-    canvas.height = targetHeightPx;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas 2D context unavailable");
-
-    // Solid white background — the canvas is transparent by default,
-    // which would confuse black/white quantization on the printer side.
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, targetWidthPx, targetHeightPx);
-    ctx.imageSmoothingEnabled = false; // keep text/line edges crisp
-    ctx.drawImage(img, 0, 0, targetWidthPx, targetHeightPx);
 
     const dataUrl = canvas.toDataURL("image/png");
     return dataUrl.split(",")[1] || "";
   } finally {
-    URL.revokeObjectURL(url);
+    iframe.remove();
   }
 }
 
@@ -325,11 +298,9 @@ export async function printHtml({
    * bypassing the OS driver entirely. Every printer receives the
    * identical bitmap, converted the identical way.
    * ----------------------------------------------------------- */
-  const heightMm = await measureReceiptHeightMm(inlined, printer.widthMm);
   const pngBase64 = await rasterizeHtmlToPngBase64(
     inlined,
     printer.widthMm,
-    heightMm,
     printer.density
   );
 
