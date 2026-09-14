@@ -16,28 +16,37 @@ import type { ReceiptConfig } from "./types";
 export const receiptConfig: ReceiptConfig = {
   printer: {
     density: 203,
-    widthMm: 80,
 
-    /* See PrinterConfig in types.ts for the full explanation. Short
-       version: "raw" bypasses printer drivers entirely and is what
-       makes every printer print identically. Only switch to "pixel"
-       for a non-ESC/POS printer (e.g. testing with
-       "Microsoft Print to PDF"). */
+    // ← CHANGED: was 80. This is the PRINTABLE width of the printhead,
+    //   not the paper width. 80mm paper has a ~72mm printhead; sending
+    //   an 80mm raster makes the printer clip the right edge. 72 fixes
+    //   both "right side hidden" and "content off-centre".
+    widthMm: 72,
+
     mode: "raw",
 
     raw: {
-      language: "ESCPOS",
+      language: "ESC-POS",
       quantization: "luma",
-      threshold: 128,
+      // ← CHANGED: was 128. 160 makes text noticeably darker/sharper on
+      //   thermal paper. Try 150–180; higher = bolder, lower = lighter.
+      threshold: 160,
       dotDensity: "single",
       imageEncoding: "gs_v_0",
-      forceRaw: true
+      forceRaw: true,
     },
 
     pixel: {
       colorType: "blackwhite",
-      interpolation: "nearest-neighbor"
-    }
+      interpolation: "nearest-neighbor",
+    },
+
+    // ← NEW: paper cut after every print.
+    cut: {
+      enabled: true,
+      type: "full",   // "partial" leaves a tab for easy tearing
+      feedLines: 3,   // 3 blank lines before cutting
+    },
   },
 
   business: {
@@ -48,7 +57,7 @@ export const receiptConfig: ReceiptConfig = {
     address: "Doha, Qatar",
     phone: "+974 5000 0000",
     email: "",
-    website: "grabvo.app/grabvo"
+    website: "grabvo.app/grabvo",
   },
 
   locale: {
@@ -58,39 +67,37 @@ export const receiptConfig: ReceiptConfig = {
     total: { en: "TOTAL", ar: "الإجمالي" },
     thanks: {
       en: "Thank you for dining with us",
-      ar: "شكراً لتناولكم الطعام معنا"
+      ar: "شكراً لتناولكم الطعام معنا",
     },
     visitAgain: {
       en: "We look forward to serving you again",
-      ar: "نتطلع لخدمتكم مرة أخرى"
+      ar: "نتطلع لخدمتكم مرة أخرى",
     },
     returnNote: {
       en: "Items once sold cannot be returned without a valid receipt.",
-      ar: "لا يمكن إرجاع المنتجات بعد البيع دون فاتورة صالحة."
-    }
+      ar: "لا يمكن إرجاع المنتجات بعد البيع دون فاتورة صالحة.",
+    },
   },
 
   style: {
     baseFont:
       "'Segoe UI', 'Helvetica Neue', 'Inter', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif",
     baseSize: "9.5pt",
-    lineHeight: "1.4",
+    // ← CHANGED: was "1.4". Tighter, still legible, noticeably shorter
+    //   receipts. 1.25 is a good sweet spot for thermal.
+    lineHeight: "1.25",
 
-    /*
-     * 72mm content inside an 80mm page (4mm symmetric margin each
-     * side). 72mm is the actual printable width on virtually every
-     * 80mm/203dpi thermal printhead — the paper is 80mm but the
-     * print head itself physically cannot mark the outer ~4mm on
-     * either edge. Using exactly 72mm, centered, means nothing ever
-     * gets clipped no matter which side a given printer's unusable
-     * margin falls on — this is what fixes "right side hidden" on
-     * some printers and "too much blank space" on others.
-     */
+    // pageWidth must equal printer.widthMm so content is designed for
+    // exactly the raster the printer receives.
     pageWidth: "72mm",
-    paddingLeftMm: "4mm",
-    paddingRightMm: "4mm",
-    topPadding: "4mm",
-    bottomPadding: "5mm",
+    // ← CHANGED: was "4mm". Reduced so we don't waste printhead area.
+    paddingLeftMm: "3mm",
+    paddingRightMm: "3mm",
+    // ← CHANGED: was "4mm".
+    topPadding: "2mm",
+    // ← CHANGED: was "5mm". Kept a touch larger so the cut-feed has
+    //   clean white space below the last line.
+    bottomPadding: "3mm",
 
     arabicFont:
       "'Tahoma', 'Segoe UI', 'Simplified Arabic', 'Traditional Arabic', 'Noto Naskh Arabic', 'Arial', sans-serif",
@@ -113,21 +120,25 @@ export const receiptConfig: ReceiptConfig = {
     showLogo: true,
 
     sectionSize: "7pt",
-    sectionTopGap: "4mm",
+    // ← CHANGED: was "4mm".
+    sectionTopGap: "2.5mm",
 
     orderLineSize: "9pt",
 
     metaSize: "8.5pt",
     smallMetaSize: "7.5pt",
-    rowSpacing: "1.1mm",
+    // ← CHANGED: was "1.1mm".
+    rowSpacing: "0.8mm",
 
     itemNameSize: "10pt",
     itemNameArSize: "8pt",
     itemMetaSize: "7.5pt",
-    itemPadding: "2mm",
+    // ← CHANGED: was "2mm".
+    itemPadding: "1.5mm",
     itemNoteSize: "7.5pt",
 
-    subtotalTopGap: "3mm",
+    // ← CHANGED: was "3mm".
+    subtotalTopGap: "2mm",
 
     grandLabelSize: "11pt",
     grandArSize: "11pt",
@@ -137,8 +148,11 @@ export const receiptConfig: ReceiptConfig = {
     footerArSize: "9.5pt",
     smallArSize: "8.5pt",
     footerSize: "7.5pt",
-    smallFooterSize: "6.8pt",
-    poweredSize: "6.5pt"
+    // ← CHANGED: was "6.8pt". Below ~7pt thermal text goes blurry no
+    //   matter what — 203dpi just can't render smaller cleanly.
+    smallFooterSize: "7pt",
+    // ← CHANGED: was "6.5pt". Same reason.
+    poweredSize: "7pt",
   },
 
   order: {
@@ -153,7 +167,7 @@ export const receiptConfig: ReceiptConfig = {
 
     payments: [
       { method: "Cash", amount: 50.0 },
-      { method: "Card", amount: 33.0 }
+      { method: "Card", amount: 33.0 },
     ],
 
     billNo: "260630000004",
@@ -161,14 +175,14 @@ export const receiptConfig: ReceiptConfig = {
 
     payTime: "30/06/2026 10:55 AM",
     orderTime: "30/06/2026 10:30 AM",
-    printTime: "30/06/2026 10:55 AM"
+    printTime: "30/06/2026 10:55 AM",
   },
 
   customer: {
     name: "Saif Eddine",
     phone: "",
     email: "",
-    address: ""
+    address: "",
   },
 
   lineItems: [
@@ -177,22 +191,22 @@ export const receiptConfig: ReceiptConfig = {
       nameAr: "تيراميسو قهوة عربية",
       qty: 2,
       price: 25.0,
-      note: "Extra hot · no sugar"
+      note: "Extra hot · no sugar",
     },
     {
       name: "Cappuccino",
       nameAr: "كابتشينو",
       qty: 1,
       price: 15.0,
-      note: ""
+      note: "",
     },
     {
       name: "Chocolate Cake",
       nameAr: "كيك الشوكولاتة",
       qty: 1,
       price: 18.0,
-      note: "Sliced in 4 pieces"
-    }
+      note: "Sliced in 4 pieces",
+    },
   ],
 
   currency: "ر.ق",
@@ -203,7 +217,7 @@ export const receiptConfig: ReceiptConfig = {
     thanks: "Thank you for dining with us",
     line2: "We look forward to serving you again",
     returnPolicy: "Items once sold cannot be returned without a valid receipt.",
-    powered: "GX · Gravbo"
+    powered: "GX · Gravbo",
   },
 
   ticket: {
@@ -215,7 +229,7 @@ export const receiptConfig: ReceiptConfig = {
       items: "items",
       notes: "Special instructions",
       footer: "Please prepare as ordered",
-      powered: "GX Gravbo"
+      powered: "GX Gravbo",
     },
 
     sortItemsByName: false,
@@ -223,18 +237,22 @@ export const receiptConfig: ReceiptConfig = {
     notes: "",
 
     style: {
-      /* Same 72mm-centered-in-80mm rule as the receipt style above —
-         see the comment there. Keep both in sync. */
+      // ← CHANGED: was "72mm" — still 72, matching printer.widthMm.
       pageWidth: "72mm",
-      paddingLeftMm: "4mm",
-      paddingRightMm: "4mm",
-      topPadding: "5mm",
-      bottomPadding: "5mm",
+      // ← CHANGED: was "4mm".
+      paddingLeftMm: "3mm",
+      // ← CHANGED: was "4mm".
+      paddingRightMm: "3mm",
+      // ← CHANGED: was "5mm".
+      topPadding: "3mm",
+      // ← CHANGED: was "5mm".
+      bottomPadding: "3mm",
 
       baseFont:
         "'Segoe UI', 'Helvetica Neue', 'Inter', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif",
       baseSize: "11pt",
-      lineHeight: "1.35",
+      // ← CHANGED: was "1.35".
+      lineHeight: "1.25",
 
       badgeSize: "10pt",
       orderNumberSize: "32pt",
@@ -248,62 +266,44 @@ export const receiptConfig: ReceiptConfig = {
       itemNameWeight: "800",
       itemNameArSize: "10pt",
       itemNoteSize: "10pt",
-      itemPadding: "3mm",
+      // ← CHANGED: was "3mm".
+      itemPadding: "2mm",
       itemDivider: "",
 
       notesLabelSize: "9pt",
       notesBodySize: "11pt",
       thanksSize: "11pt",
-      poweredSize: "7pt"
-    }
+      poweredSize: "7pt",
+    },
   },
 
-  /* -------------------------------------------------------------
-   * "Before payment" Order Receipt — a pre-payment preview of the
-   * check. Same items + totals as the Checkout Receipt, but NO
-   * payment section (nothing's been paid yet). The grand-total
-   * label reads "Payable". No "BILL" banner is printed.
-   * ------------------------------------------------------------- */
   bill: {
     header: {
       label: "BILL",
-      note: "Not a valid receipt"
+      note: "Not a valid receipt",
     },
 
     labels: {
-      amountDue: { en: "AMOUNT DUE", ar: "المبلغ المستحق" }
+      amountDue: { en: "AMOUNT DUE", ar: "المبلغ المستحق" },
     },
 
     footer: {
       note: "Please settle at the counter to receive your official receipt.",
-      noteAr: "يرجى الدفع عند الكاونتر للحصول على الفاتورة الرسمية."
-    }
+      noteAr: "يرجى الدفع عند الكاونتر للحصول على الفاتورة الرسمية.",
+    },
   },
 
-  /* -------------------------------------------------------------
-   * Cancellation Receipt — printed at the kitchen/ticket printer to
-   * void an order that's already been sent to prep. Same item list
-   * as the Preparation Receipt, with a "Removed Products" banner,
-   * a "Kindly Remove" footer note, and an optional reason.
-   *
-   * NOTE on key names: `labels.footer` renders as the big banner,
-   * and `labels.warning` renders as the small footer line. The names
-   * are kept as-is to avoid touching the template — only the text
-   * values below were changed.
-   * ------------------------------------------------------------- */
   cancellation: {
     header: { label: "CANCELLED" },
 
     labels: {
       reason: "Reason",
       items: "items",
-      // Big banner at the top of the cancellation receipt:
       footer: "Removed Products",
       powered: "GX - Gravbo",
-      // Footer line at the bottom of the cancellation receipt:
-      warning: "Kindly remove"
+      warning: "Kindly remove",
     },
 
-    reason: ""
-  }
+    reason: "",
+  },
 };
