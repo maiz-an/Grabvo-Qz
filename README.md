@@ -676,15 +676,21 @@ it's running against the local Express server or against Vercel.
   HTML into `data:` URIs before printing, so the printer doesn't need
   network access for a logo.
 - `printHtml()` — the print pipeline, branching on `printer.mode`:
-  - **`"raw"` (default, every real thermal printer)** — sends
-    `{ type: "raw", format: "html", options: { language: "ESCPOS", ... } }`.
-    QZ renders the HTML, converts it to ESC/POS raster commands using
-    `quantization`/`threshold` from config, and (`forceRaw: true`) writes
-    those bytes straight to the printer — the OS driver never touches
-    the content, so output is identical across printer brands/drivers.
-    No manual height calculation needed here: ESC/POS raster just prints
-    until the content ends, so QZ auto-sizes the height to the real
-    content (`pageHeight` is intentionally left unset).
+  - **`"raw"` (default, every real thermal printer)** — the receipt is
+    rasterized to a PNG **in the browser itself first**
+    (`rasterizeHtmlToPngBase64()`, using an SVG `<foreignObject>` so it's
+    real browser layout/paint — the exact same engine that renders the
+    live preview correctly — not a separate implementation), then sent
+    as `{ type: "raw", format: "image", options: { language: "ESCPOS",
+    quantization, threshold, dotDensity, imageEncoding } }`. QZ never
+    renders any HTML/CSS itself here — it only encodes an already-
+    finished bitmap into ESC/POS raster commands, then (`forceRaw: true`)
+    writes those bytes straight to the printer, bypassing the OS driver
+    entirely. Two things this fixes at once: every printer receives the
+    identical bitmap converted the identical way (no more "different
+    printer, different spacing/blur"), and QZ's own separate embedded
+    HTML renderer — which choked on this app's CSS and printed blank
+    pages forever — is out of the picture completely.
   - **`"pixel"` (fallback, non-ESC/POS printers only)** — the old
     driver-based path: `measureReceiptHeightMm()` renders the HTML in a
     hidden off-screen iframe to estimate the physical height, then
@@ -764,6 +770,20 @@ show. Install at least one (Microsoft Print to PDF is enough to test).
 
 Windows' built-in PDF driver needs a custom paper size registered once.
 See [Testing without a real printer](#testing-without-a-real-printer).
+
+### Printer feeds blank paper endlessly
+
+This was a real bug in an earlier version of `printHtml()`, now fixed:
+sending `{ type: "raw", format: "html" }` handed the receipt's HTML/CSS to
+**QZ Tray's own separate embedded renderer** — a different engine than
+your actual browser — and it choked on this app's CSS, producing corrupt
+raster data that some printers interpreted as an endless blank feed. The
+fix was to stop asking QZ to render anything at all: the receipt is now
+rasterized to a finished PNG in the browser itself
+(`rasterizeHtmlToPngBase64()` in `lib/qz.ts` — the same rendering engine
+that draws the live preview correctly), and only that already-finished
+bitmap is handed to QZ as `{ type: "raw", format: "image" }`. If you're
+running an older copy of `lib/qz.ts` and see this, update it.
 
 ### The same receipt prints differently on different printers
 
