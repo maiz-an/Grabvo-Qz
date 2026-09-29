@@ -222,28 +222,43 @@ if exist "%USER_ALLOWED%" (
 :: here purely so the whole sequence runs in one pass, in the original
 :: order, exactly like it did before this script stopped elevating the
 :: entire window.
+:: The three whitelist attempts below stop as soon as one grows
+:: allowed.dat (checked via :chk, generated at the bottom of this helper)
+:: instead of always running all three - attempt 3's flaky equals-form in
+:: particular isn't just wasted work when it runs after an earlier
+:: attempt already succeeded, it's been observed to make qz-tray-console
+:: boot a full QZ Tray instance instead of registering anything.
 set "INSTALL_HELPER=%TEMP%\grabvo_install_helper_%RANDOM%.cmd"
 > "!INSTALL_HELPER!" (
     echo @echo off
     echo set "qz-print_silent=1"
     echo "!QZ_EXE!" /S
-    echo if exist "%QZ_CONSOLE%" ^(
-    echo     "%QZ_CONSOLE%" --whitelist "!CERT_FILE!" ^>nul 2^>^&1
-    echo     timeout /t 2 /nobreak ^>nul 2^>^&1
-    echo     taskkill /IM "qz-tray-console.exe" /F ^>nul 2^>^&1
-    echo     pushd "!TEMP_DIR!" ^>nul 2^>^&1
-    echo     "%QZ_CONSOLE%" --whitelist "!CERT_FILENAME!" ^>nul 2^>^&1
-    echo     popd ^>nul 2^>^&1
-    echo     timeout /t 2 /nobreak ^>nul 2^>^&1
-    echo     taskkill /IM "qz-tray-console.exe" /F ^>nul 2^>^&1
-    echo     "%QZ_CONSOLE%" --whitelist="!CERT_FILE!" ^>nul 2^>^&1
-    echo     timeout /t 2 /nobreak ^>nul 2^>^&1
-    echo     taskkill /IM "qz-tray-console.exe" /F ^>nul 2^>^&1
-    echo ^)
+    echo if not exist "%QZ_CONSOLE%" goto :skip_whitelist
+    echo set "AB=0"
+    echo if exist "%USER_ALLOWED%" for %%%%F in ^("%USER_ALLOWED%"^) do set "AB=%%%%~zF"
+    echo "%QZ_CONSOLE%" --whitelist "!CERT_FILE!" ^>nul 2^>^&1
+    echo timeout /t 2 /nobreak ^>nul 2^>^&1
+    echo taskkill /IM "qz-tray-console.exe" /F ^>nul 2^>^&1
+    echo call :chk ^&^& goto :skip_whitelist
+    echo pushd "!TEMP_DIR!" ^>nul 2^>^&1
+    echo "%QZ_CONSOLE%" --whitelist "!CERT_FILENAME!" ^>nul 2^>^&1
+    echo popd ^>nul 2^>^&1
+    echo timeout /t 2 /nobreak ^>nul 2^>^&1
+    echo taskkill /IM "qz-tray-console.exe" /F ^>nul 2^>^&1
+    echo call :chk ^&^& goto :skip_whitelist
+    echo "%QZ_CONSOLE%" --whitelist="!CERT_FILE!" ^>nul 2^>^&1
+    echo timeout /t 2 /nobreak ^>nul 2^>^&1
+    echo taskkill /IM "qz-tray-console.exe" /F ^>nul 2^>^&1
+    echo :skip_whitelist
     echo if exist "%QZ_INSTALL_DIR%" copy /Y "!CERT_FILE!" "%QZ_INSTALL_DIR%\override.crt" ^>nul 2^>^&1
     echo if not exist "%PROGRAMDATA%\qz" mkdir "%PROGRAMDATA%\qz" ^>nul 2^>^&1
     echo copy /Y "!CERT_FILE!" "%PROGRAMDATA%\qz\override.crt" ^>nul 2^>^&1
-    echo if exist "!USER_ALLOWED!" copy /Y "!USER_ALLOWED!" "%PROGRAMDATA%\qz\allowed.dat" ^>nul 2^>^&1
+    echo if exist "%USER_ALLOWED%" copy /Y "%USER_ALLOWED%" "%PROGRAMDATA%\qz\allowed.dat" ^>nul 2^>^&1
+    echo exit /b 0
+    echo :chk
+    echo set "AN=0"
+    echo if exist "%USER_ALLOWED%" for %%%%F in ^("%USER_ALLOWED%"^) do set "AN=%%%%~zF"
+    echo if %%AN%% GTR %%AB%% ^(exit /b 0^) else ^(exit /b 1^)
 )
 
 call :arrow "Setting up QZ Tray - approve the Windows prompt if one appears"
@@ -487,10 +502,44 @@ exit /b 1
 :: replaced or hidden; only the (windowless) elevated child is.
 :: in: %1 helper .cmd path.  out: errorlevel = the helper's exit code,
 :: or 1223 (ERROR_CANCELLED) if the UAC prompt was declined.
+::
+:: "-WindowStyle Hidden" on Start-Process is NOT reliably honored by
+:: Windows' UAC elevation broker for a "-Verb RunAs" launch - this is a
+:: known Windows quirk, not something wrong with the flags themselves.
+:: Rather than trust that hint, the elevated helper hides ITS OWN console
+:: window as its very first action, from the inside, via the same Win32
+:: console API :ensure_truetype_font already uses elsewhere in this file
+:: (GetConsoleWindow + ShowWindow instead of SetCurrentConsoleFontEx).
 :elevate_run
 set "ELEV_FILE=%~1"
-powershell -NoProfile -Command "try { $p = Start-Process -FilePath '!ELEV_FILE!' -Verb RunAs -WindowStyle Hidden -Wait -PassThru; exit $p.ExitCode } catch { exit 1223 }" >nul 2>&1
-exit /b !errorLevel!
+
+set "HIDE_PS1=%TEMP%\grabvo_hidewin_%RANDOM%.ps1"
+> "%HIDE_PS1%" (
+    echo $sig = @'
+    echo using System;
+    echo using System.Runtime.InteropServices;
+    echo public static class GrabvoHideWin {
+    echo     [DllImport^("kernel32.dll"^)]
+    echo     public static extern IntPtr GetConsoleWindow^(^);
+    echo     [DllImport^("user32.dll"^)]
+    echo     public static extern bool ShowWindow^(IntPtr hWnd, int nCmdShow^);
+    echo }
+    echo '@
+    echo Add-Type -TypeDefinition $sig -Language CSharp
+    echo [GrabvoHideWin]::ShowWindow^([GrabvoHideWin]::GetConsoleWindow^(^), 0^) ^| Out-Null
+)
+
+set "ELEV_WRAPPER=%TEMP%\grabvo_elev_wrapper_%RANDOM%.cmd"
+> "%ELEV_WRAPPER%" (
+    echo @echo off
+    echo powershell -NoProfile -ExecutionPolicy Bypass -File "%HIDE_PS1%" ^>nul 2^>^&1
+    echo call "%ELEV_FILE%"
+)
+
+powershell -NoProfile -Command "try { $p = Start-Process -FilePath '%ELEV_WRAPPER%' -Verb RunAs -WindowStyle Hidden -Wait -PassThru; exit $p.ExitCode } catch { exit 1223 }" >nul 2>&1
+set "ELEV_EXIT=!errorLevel!"
+del /f /q "%ELEV_WRAPPER%" "%HIDE_PS1%" >nul 2>&1
+exit /b !ELEV_EXIT!
 
 :: =========================================================================
 ::   UI (pure ASCII on disk - real glyphs decoded from hex at runtime)

@@ -300,13 +300,43 @@ exit /b 0
 
 :: Runs a helper .cmd file elevated and with no visible window, waits for
 :: it to finish, and exits with its exit code. See the matching
-:: subroutine in Qz-Grabvo.cmd for the full explanation.
+:: subroutine in Qz-Grabvo.cmd for the full explanation, including why
+:: the elevated helper hides its OWN console window from the inside
+:: (GetConsoleWindow + ShowWindow) rather than trusting -WindowStyle
+:: Hidden, which Windows' UAC broker doesn't reliably honor for -Verb
+:: RunAs launches.
 :: in: %1 helper .cmd path.  out: errorlevel = the helper's exit code,
 :: or 1223 (ERROR_CANCELLED) if the UAC prompt was declined.
 :elevate_run
 set "ELEV_FILE=%~1"
-powershell -NoProfile -Command "try { $p = Start-Process -FilePath '!ELEV_FILE!' -Verb RunAs -WindowStyle Hidden -Wait -PassThru; exit $p.ExitCode } catch { exit 1223 }" >nul 2>&1
-exit /b !errorLevel!
+
+set "HIDE_PS1=%TEMP%\grabvo_hidewin_%RANDOM%.ps1"
+> "%HIDE_PS1%" (
+    echo $sig = @'
+    echo using System;
+    echo using System.Runtime.InteropServices;
+    echo public static class GrabvoHideWin {
+    echo     [DllImport^("kernel32.dll"^)]
+    echo     public static extern IntPtr GetConsoleWindow^(^);
+    echo     [DllImport^("user32.dll"^)]
+    echo     public static extern bool ShowWindow^(IntPtr hWnd, int nCmdShow^);
+    echo }
+    echo '@
+    echo Add-Type -TypeDefinition $sig -Language CSharp
+    echo [GrabvoHideWin]::ShowWindow^([GrabvoHideWin]::GetConsoleWindow^(^), 0^) ^| Out-Null
+)
+
+set "ELEV_WRAPPER=%TEMP%\grabvo_elev_wrapper_%RANDOM%.cmd"
+> "%ELEV_WRAPPER%" (
+    echo @echo off
+    echo powershell -NoProfile -ExecutionPolicy Bypass -File "%HIDE_PS1%" ^>nul 2^>^&1
+    echo call "%ELEV_FILE%"
+)
+
+powershell -NoProfile -Command "try { $p = Start-Process -FilePath '%ELEV_WRAPPER%' -Verb RunAs -WindowStyle Hidden -Wait -PassThru; exit $p.ExitCode } catch { exit 1223 }" >nul 2>&1
+set "ELEV_EXIT=!errorLevel!"
+del /f /q "%ELEV_WRAPPER%" "%HIDE_PS1%" >nul 2>&1
+exit /b !ELEV_EXIT!
 
 :: =========================================================================
 ::   UI (pure ASCII on disk - real glyphs decoded from hex at runtime)
