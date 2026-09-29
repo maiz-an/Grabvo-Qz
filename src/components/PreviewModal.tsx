@@ -213,10 +213,10 @@ export function PreviewModal({
   }
 
   const titles: Record<PreviewKind, string> = {
-    receipt: "Checkout Receipt Preview",
-    bill: "Order Receipt Preview",
-    ticket: "Preparation Receipt Preview",
-    cancellation: "Cancellation Receipt Preview",
+    receipt: "Checkout Receipt Preview (ESC/POS)",
+    bill: "Order Receipt Preview (ESC/POS)",
+    ticket: "Preparation Receipt Preview (ESC/POS)",
+    cancellation: "Cancellation Receipt Preview (ESC/POS)",
   };
   const title = titles[kind];
 
@@ -248,7 +248,7 @@ export function PreviewModal({
       }}
     >
       {/* ============================================================
-          MODAL CARD
+          MODAL CARD — matches Grabvo's Card (rounded-[2rem])
           ============================================================ */}
       <div
         className="
@@ -257,11 +257,11 @@ export function PreviewModal({
           w-[min(520px,100%)]
           flex-col
           overflow-hidden
-          rounded-lg
+          rounded-[2rem]
           border
-          border-slate-200
+          border-slate-100
           bg-white
-          shadow-lg
+          shadow-[0_24px_80px_rgba(15,23,42,.35)]
         "
       >
         {/* ==========================================================
@@ -274,12 +274,12 @@ export function PreviewModal({
             items-center
             justify-between
             border-b
-            border-slate-200
+            border-slate-100
             bg-slate-50
             px-6
             py-4
             text-[13px]
-            font-semibold
+            font-bold
             text-slate-900
           "
         >
@@ -291,7 +291,7 @@ export function PreviewModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-500 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-bold text-slate-500 transition-all duration-300 hover:border-violet-200 hover:text-violet-600 focus:outline-none focus:ring-2 focus:ring-violet-500"
           >
             <i className="fa-solid fa-xmark" aria-hidden="true" /> Close
           </button>
@@ -304,13 +304,13 @@ export function PreviewModal({
             we actually have one (canSimulate); otherwise the fallback
             live iframe below renders with no badge at all.
             ========================================================== */}
-        {canSimulate && (
-          <div className="flex flex-none justify-center border-b border-slate-200 bg-white px-6 py-2.5">
-            <span className="rounded bg-violet-600 px-3 py-1 text-[11px] font-medium text-white">
+        {/* {canSimulate && (
+          <div className="flex flex-none justify-center border-b border-slate-100 bg-white px-6 py-2.5">
+            <span className="rounded-lg bg-violet-600 px-3 py-1 text-[11px] font-bold text-white">
               Exact print (ESC/POS)
             </span>
           </div>
-        )}
+        )} */}
 
         {/* ==========================================================
             MODAL BODY
@@ -328,6 +328,10 @@ export function PreviewModal({
             items-start
             justify-center
           "
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 50% 0%, rgba(124,58,237,.08), transparent 60%)",
+          }}
         >
           {/* ========================================================
               LOADING PLACEHOLDER — uses shared shimmer wash
@@ -344,12 +348,10 @@ export function PreviewModal({
                 h-[520px]
                 flex-col
                 gap-3
-                rounded-lg
-                border
-                border-slate-200
+                rounded-2xl
                 bg-white
                 p-5
-                shadow-sm
+                shadow-[0_18px_50px_rgba(15,23,42,.18)]
               "
               style={{
                 width: `${widthMm}mm`,
@@ -389,11 +391,9 @@ export function PreviewModal({
               mx-auto
               block
               flex-none
-              rounded-lg
-              border
-              border-slate-200
+              rounded-2xl
               bg-white
-              shadow-sm
+              shadow-[0_3px_8px_rgba(15,23,42,.18)]
             "
             style={{
               display: view === "live" ? "block" : "none",
@@ -414,7 +414,7 @@ export function PreviewModal({
               ======================================================== */}
           {view === "exact" && (
             <div
-              className="mx-auto flex flex-none justify-center rounded-lg border border-slate-200 bg-white shadow-sm"
+              className="mx-auto flex flex-none justify-center rounded-2xl bg-white shadow-[0_3px_8px_rgba(15,23,42,.18)]"
               style={{ width: `${widthMm}mm`, minWidth: 260, maxWidth: "100%" }}
             >
               {simLoading && (
