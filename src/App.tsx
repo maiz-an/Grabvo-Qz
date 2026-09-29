@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 import { Logo } from "@/components/Logo";
 import { PrinterSettingsPanel } from "@/components/PrinterSettingsPanel";
@@ -33,6 +33,55 @@ const MODE_LABEL: Record<ConnectionMode, string> = {
 };
 
 const SUPPORT_EMAIL = "support@grabvo.app";
+
+type SectionKey = "print" | "printers" | "setup";
+
+const SECTION_LABEL: Record<SectionKey, string> = {
+  print: "Print",
+  printers: "Printers & Connection",
+  setup: "Setup",
+};
+
+/**
+ * Pill tab switcher — same segmented-control pattern used elsewhere
+ * (ConnectionCard's Direct/Agent switch, SetupPanel's OS switch): flat
+ * slate track, solid violet-600 active pill, no motion.
+ */
+function SectionSwitcher({
+  value,
+  onChange,
+}: {
+  value: SectionKey;
+  onChange: (section: SectionKey) => void;
+}) {
+  return (
+    <div
+      className="mb-10 flex w-fit flex-wrap items-center gap-0.5 rounded-full bg-slate-100 p-0.5"
+      role="tablist"
+      aria-label="Section"
+    >
+      {(Object.keys(SECTION_LABEL) as SectionKey[]).map((key) => {
+        const isActive = value === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => onChange(key)}
+            className={`rounded-full px-4 py-2 text-[12px] font-semibold uppercase tracking-[0.04em] transition-colors ${
+              isActive
+                ? "bg-violet-600 text-white"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            {SECTION_LABEL[key]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function App() {
   const { toasts, showToast } = useToast();
@@ -186,15 +235,13 @@ export default function App() {
     return buildTicketHtml();
   })();
 
-  /* ---------- single-page layout: jump-to-section instead of tabs ----------
-     There's no navigation shell anymore - everything lives on one
-     scrolling page. The status pill / glance chips still act as
-     shortcuts, they just smooth-scroll to the Printers section instead
-     of switching a tab. */
-  const printersRef = useRef<HTMLDivElement>(null);
-  const scrollToPrinters = useCallback(() => {
-    printersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
+  /* ---------- toggle sections: one visible at a time ----------
+     Print / Printers & Connection / Setup are now switched via a tab
+     pill instead of all stacking on one scrolling page. The status pill
+     / glance chips still act as shortcuts — they just switch to the
+     Printers tab instead of smooth-scrolling to it. */
+  const [activeSection, setActiveSection] = useState<SectionKey>("print");
+  const goToPrinters = useCallback(() => setActiveSection("printers"), []);
 
   return (
     <>
@@ -232,82 +279,94 @@ export default function App() {
                 prints silently, no popups.
               </p>
             </div>
-            <StatusPill status={status} onClick={scrollToPrinters} />
+            <StatusPill status={status} onClick={goToPrinters} />
           </header>
 
           {/* Glance strip */}
-          <div className="mb-14 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="mb-10 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <StatChip
               icon="fa-route"
               label="Connection"
               value={MODE_LABEL[connectionMode]}
-              onClick={scrollToPrinters}
+              onClick={goToPrinters}
             />
             <StatChip
               icon="fa-receipt"
               label="Receipt printer"
               value={receiptPrinter || "Not assigned"}
               tone={receiptPrinter ? "neutral" : "warning"}
-              onClick={scrollToPrinters}
+              onClick={goToPrinters}
             />
             <StatChip
               icon="fa-kitchen-set"
               label="Ticket printer"
               value={ticketPrinter || "Not assigned"}
               tone={ticketPrinter ? "neutral" : "warning"}
-              onClick={scrollToPrinters}
+              onClick={goToPrinters}
             />
           </div>
 
           {/* ============================================================
+              SECTION TOGGLE — only one of Print / Printers & Connection /
+              Setup is visible at a time.
+              ============================================================ */}
+          <SectionSwitcher value={activeSection} onChange={setActiveSection} />
+
+          {/* ============================================================
               PRINT
               ============================================================ */}
-          <section className="mb-14">
-            <Eyebrow className="mb-4">Print</Eyebrow>
-            <PrintCards
-              receiptPrinter={receiptPrinter}
-              ticketPrinter={ticketPrinter}
-              onPreviewReceipt={() => handlePreview("receipt")}
-              onPreviewBill={() => handlePreview("bill")}
-              onPreviewTicket={() => handlePreview("ticket")}
-              onPreviewCancellation={() => handlePreview("cancellation")}
-              onPrintReceipt={handlePrintReceipt}
-              onPrintBill={handlePrintBill}
-              onPrintTicket={handlePrintTicket}
-              onPrintCancellation={handlePrintCancellation}
-            />
-          </section>
+          {activeSection === "print" && (
+            <section className="mb-14">
+              <Eyebrow className="mb-4">Print</Eyebrow>
+              <PrintCards
+                receiptPrinter={receiptPrinter}
+                ticketPrinter={ticketPrinter}
+                onPreviewReceipt={() => handlePreview("receipt")}
+                onPreviewBill={() => handlePreview("bill")}
+                onPreviewTicket={() => handlePreview("ticket")}
+                onPreviewCancellation={() => handlePreview("cancellation")}
+                onPrintReceipt={handlePrintReceipt}
+                onPrintBill={handlePrintBill}
+                onPrintTicket={handlePrintTicket}
+                onPrintCancellation={handlePrintCancellation}
+              />
+            </section>
+          )}
 
           {/* ============================================================
               PRINTERS & CONNECTION
               ============================================================ */}
-          <section ref={printersRef} className="mb-14 scroll-mt-8">
-            <Eyebrow className="mb-4">Printers &amp; Connection</Eyebrow>
-            <PrinterSettingsPanel
-              status={status}
-              printers={printers}
-              errorMessage={errorMessage}
-              receiptPrinter={receiptPrinter}
-              ticketPrinter={ticketPrinter}
-              onSelect={handlePrinterSelect}
-              connectionMode={connectionMode}
-              agentUrl={agentUrl}
-              onModeChange={handleConnectionModeChange}
-              onAgentUrlChange={handleAgentUrlChange}
-              connecting={connecting}
-              refreshing={refreshing}
-              onConnect={handleConnect}
-              onRefresh={handleRefresh}
-            />
-          </section>
+          {activeSection === "printers" && (
+            <section className="mb-14">
+              <Eyebrow className="mb-4">Printers &amp; Connection</Eyebrow>
+              <PrinterSettingsPanel
+                status={status}
+                printers={printers}
+                errorMessage={errorMessage}
+                receiptPrinter={receiptPrinter}
+                ticketPrinter={ticketPrinter}
+                onSelect={handlePrinterSelect}
+                connectionMode={connectionMode}
+                agentUrl={agentUrl}
+                onModeChange={handleConnectionModeChange}
+                onAgentUrlChange={handleAgentUrlChange}
+                connecting={connecting}
+                refreshing={refreshing}
+                onConnect={handleConnect}
+                onRefresh={handleRefresh}
+              />
+            </section>
+          )}
 
           {/* ============================================================
               SETUP
               ============================================================ */}
-          <section className="mb-14">
-            <Eyebrow className="mb-4">Setup</Eyebrow>
-            <SetupPanel />
-          </section>
+          {activeSection === "setup" && (
+            <section className="mb-14">
+              <Eyebrow className="mb-4">Setup</Eyebrow>
+              <SetupPanel />
+            </section>
+          )}
 
           {/* ============================================================
               Footer

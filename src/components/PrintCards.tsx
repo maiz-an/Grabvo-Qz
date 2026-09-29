@@ -104,7 +104,7 @@ function PrintCard({
         whileHover={{ y: -5 }}
         whileTap={{ scale: 0.985 }}
         transition={{ type: "spring", stiffness: 320, damping: 26 }}
-        className={`group flex flex-col gap-4 rounded-[1.75rem] bg-[#FBF8F2] p-5 shadow-[0_10px_28px_-10px_rgba(41,32,20,0.14)] transition-shadow duration-200 ${cfg.shadow}`}
+        className={`group flex flex-col gap-4 rounded-[1.75rem] bg-white p-5 shadow-[0_10px_28px_-10px_rgba(15,23,42,0.14)] transition-shadow duration-200 ${cfg.shadow}`}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -131,7 +131,7 @@ function PrintCard({
 
         <div
           className={
-            "flex min-h-[42px] items-center gap-2 break-all rounded-xl bg-[#F3EEE2] px-3.5 py-2.5 text-[12px] font-medium leading-snug " +
+            "flex min-h-[42px] items-center gap-2 break-all rounded-xl bg-slate-100 px-3.5 py-2.5 text-[12px] font-medium leading-snug " +
             (hasPrinter ? "text-slate-700" : "italic text-amber-600")
           }
         >

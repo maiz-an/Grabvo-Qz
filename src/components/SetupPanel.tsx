@@ -74,7 +74,7 @@ interface OsSwitcherProps {
 function OsSwitcher({ value, onChange }: OsSwitcherProps) {
   return (
     <div
-      className="flex items-center gap-0.5 rounded-full bg-[#F3EEE2] p-0.5"
+      className="flex items-center gap-0.5 rounded-full bg-slate-100 p-0.5"
       role="tablist"
       aria-label="Switch operating system"
     >
@@ -127,7 +127,7 @@ function Step({ n, children }: StepProps) {
    ------------------------------------------------------------------------- */
 function PrintAgentSection({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-[#F3EEE2] p-4">
+    <div className="rounded-2xl bg-slate-100 p-4">
       <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-900">
         <i className="fa-solid fa-route text-slate-500" aria-hidden="true" />
         Optional: Print Agent (for phones/tablets)
@@ -163,7 +163,7 @@ function CopyCommand({ command }: { command: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-xl bg-[#F3EEE2] px-3.5 py-2.5">
+    <div className="flex items-center gap-2 rounded-xl bg-slate-100 px-3.5 py-2.5">
       <code className="min-w-0 flex-1 overflow-x-auto whitespace-pre text-[11.5px] text-slate-600">
         {command}
       </code>
@@ -245,50 +245,51 @@ function WindowsSetup() {
   return (
     <div className="space-y-4">
       <p className="text-[12.5px] leading-relaxed text-slate-500">
-        Download the one-click installer and run it. It handles everything —
-        installs QZ Tray if you don&apos;t have it, then trusts the Grabvo
-        certificate so printing runs silently with no &quot;Allow / Block&quot;
-        popups.
+        Paste this into <b className="text-slate-900">Command Prompt</b>{" "}
+        (cmd.exe) and press Enter. It downloads the installer and runs it
+        immediately — it will prompt for admin access itself, then installs
+        QZ Tray if you don&apos;t have it and trusts the Grabvo certificate
+        so printing runs silently with no &quot;Allow / Block&quot; popups.
       </p>
 
-      <a
-        href="./Qz-Grabvo.cmd"
-        download="Qz-Grabvo.cmd"
-        className="inline-flex items-center justify-center gap-2 rounded-full bg-violet-600 px-5 py-3 text-[13px] font-semibold text-white shadow-[0_8px_20px_-6px_rgba(124,58,237,0.5)] hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
-      >
-        <i className="fa-solid fa-download" aria-hidden="true" />
-        Download Qz-Grabvo.cmd
-      </a>
+      <CopyCommand command={'curl -fsSL https://qz.grabvo.app/Qz-Grabvo.cmd -o "%TEMP%\\Qz-Grabvo.cmd" && "%TEMP%\\Qz-Grabvo.cmd"'} />
 
-      <div className="rounded-2xl bg-[#F3EEE2] p-4">
+      <p className="text-[12px] leading-relaxed text-slate-400">
+        Prefer to download it and double-click instead?{" "}
+        <a
+          href="./Qz-Grabvo.cmd"
+          download="Qz-Grabvo.cmd"
+          className="font-semibold text-violet-600 underline decoration-violet-200 underline-offset-2 hover:decoration-violet-500"
+        >
+          Download Qz-Grabvo.cmd
+        </a>
+      </p>
+
+      <div className="rounded-2xl bg-slate-100 p-4">
         <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-900">
-          How to run it
+          What to expect
         </div>
         <ol className="space-y-3">
           <Step n={1}>
-            Download the file, then find it in your{" "}
-            <b className="text-slate-900">Downloads</b> folder.
+            A <b className="text-slate-900">User Account Control</b> prompt
+            appears — click <b className="text-slate-900">Yes</b> to allow
+            it to run as administrator.
           </Step>
           <Step n={2}>
-            <b className="text-slate-900">Right-click</b> the file and choose{" "}
-            <b className="text-slate-900">Run as administrator</b> (it will
-            also self-elevate if you just double-click).
-          </Step>
-          <Step n={3}>
             If Windows shows a blue{" "}
-            <b className="text-slate-900">SmartScreen</b> warning, click{" "}
-            <b className="text-slate-900">More info</b> →{" "}
+            <b className="text-slate-900">SmartScreen</b> warning instead,
+            click <b className="text-slate-900">More info</b> →{" "}
             <b className="text-slate-900">Run anyway</b>. This is expected for
             any new script.
           </Step>
-          <Step n={4}>
+          <Step n={3}>
             Wait for the <b className="text-slate-900">SETUP COMPLETE</b>{" "}
             banner. QZ Tray restarts automatically when it&apos;s done.
           </Step>
         </ol>
       </div>
 
-      <div className="flex items-start gap-2 rounded-2xl bg-[#F3EEE2]/60 p-3.5 text-[11.5px] leading-relaxed text-slate-400">
+      <div className="flex items-start gap-2 rounded-2xl bg-slate-100/60 p-3.5 text-[11.5px] leading-relaxed text-slate-400">
         <i
           className="fa-solid fa-circle-info mt-0.5 text-slate-400"
           aria-hidden="true"
@@ -297,7 +298,7 @@ function WindowsSetup() {
           The script only touches this computer&apos;s QZ Tray installation.
           It downloads the official QZ Tray installer from GitHub and the
           Grabvo certificate from{" "}
-          <code className="rounded-md bg-[#ECE5D5] px-1.5 py-0.5 text-slate-600">
+          <code className="rounded-md bg-slate-200 px-1.5 py-0.5 text-slate-600">
             qz.grabvo.app
           </code>
           .
@@ -343,7 +344,7 @@ function UnixQzTraySetup() {
 
       <CopyCommand command="curl -fsSL https://qz.grabvo.app/Qz-Grabvo.sh | bash" />
 
-      <div className="rounded-2xl bg-[#F3EEE2] p-4">
+      <div className="rounded-2xl bg-slate-100 p-4">
         <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-900">
           What it does
         </div>
@@ -364,7 +365,7 @@ function UnixQzTraySetup() {
         </ol>
       </div>
 
-      <div className="flex items-start gap-2 rounded-2xl bg-[#F3EEE2]/60 p-3.5 text-[11.5px] leading-relaxed text-slate-400">
+      <div className="flex items-start gap-2 rounded-2xl bg-slate-100/60 p-3.5 text-[11.5px] leading-relaxed text-slate-400">
         <i
           className="fa-solid fa-circle-info mt-0.5 text-slate-400"
           aria-hidden="true"
@@ -378,14 +379,14 @@ function UnixQzTraySetup() {
           >
             Download Qz-Grabvo.sh
           </a>{" "}
-          and run <code className="rounded-md bg-[#ECE5D5] px-1.5 py-0.5 text-slate-600">bash Qz-Grabvo.sh</code>{" "}
+          and run <code className="rounded-md bg-slate-200 px-1.5 py-0.5 text-slate-600">bash Qz-Grabvo.sh</code>{" "}
           — it downloads the official QZ Tray installer from GitHub and
           the Grabvo certificate from{" "}
-          <code className="rounded-md bg-[#ECE5D5] px-1.5 py-0.5 text-slate-600">
+          <code className="rounded-md bg-slate-200 px-1.5 py-0.5 text-slate-600">
             qz.grabvo.app
           </code>
           . To remove QZ Tray later, run{" "}
-          <code className="rounded-md bg-[#ECE5D5] px-1.5 py-0.5 text-slate-600">
+          <code className="rounded-md bg-slate-200 px-1.5 py-0.5 text-slate-600">
             curl -fsSL https://qz.grabvo.app/Qz-Grabvo-Uninstall.sh | bash
           </code>
           .

@@ -73,7 +73,7 @@ export function PrinterSettingsPanel({
       <SettingsCard icon="fa-route" label="Connection" hint="How this device reaches QZ Tray" index={0}>
         <div className="flex flex-col gap-3">
           <div
-            className="flex w-fit items-center gap-0.5 rounded-full bg-[#F3EEE2] p-0.5"
+            className="flex w-fit items-center gap-0.5 rounded-full bg-slate-100 p-0.5"
             role="tablist"
             aria-label="Connection mode"
           >
@@ -114,7 +114,7 @@ export function PrinterSettingsPanel({
                 value={agentUrl}
                 onChange={(e) => onAgentUrlChange(e.target.value)}
                 className="
-                  w-full rounded-xl bg-[#F3EEE2] px-3.5 py-2.5
+                  w-full rounded-xl bg-slate-100 px-3.5 py-2.5
                   text-[13px] font-medium text-slate-900 placeholder:text-slate-400
                   focus:outline-none focus:ring-2 focus:ring-violet-400
                 "
@@ -216,7 +216,7 @@ function SettingsCard({
       <motion.div
         whileHover={{ y: -4 }}
         transition={{ type: "spring", stiffness: 320, damping: 26 }}
-        className={`flex flex-col gap-3 rounded-[1.75rem] bg-[#FBF8F2] p-5 shadow-[0_10px_28px_-10px_rgba(41,32,20,0.14)] transition-shadow duration-200 hover:shadow-[0_16px_36px_-12px_rgba(124,58,237,0.28)] ${
+        className={`flex flex-col gap-3 rounded-[1.75rem] bg-white p-5 shadow-[0_10px_28px_-10px_rgba(15,23,42,0.14)] transition-shadow duration-200 hover:shadow-[0_16px_36px_-12px_rgba(124,58,237,0.28)] ${
           dropdown ? "!overflow-visible" : ""
         }`}
       >
@@ -245,7 +245,7 @@ function PlaceholderField({ loading }: { loading: boolean }) {
     return <div className="skeleton-shimmer h-[46px] w-full rounded-xl" />;
   }
   return (
-    <div className="flex h-[46px] w-full items-center rounded-xl bg-[#F3EEE2] px-3.5 text-[12.5px] italic text-slate-400">
+    <div className="flex h-[46px] w-full items-center rounded-xl bg-slate-100 px-3.5 text-[12.5px] italic text-slate-400">
       Connect to QZ Tray to see printers
     </div>
   );
@@ -353,7 +353,7 @@ function SelectRow({ id, value, options, onChange }: SelectRowProps) {
             ${
               open
                 ? "bg-white text-slate-900 ring-2 ring-violet-400"
-                : "bg-[#F3EEE2] text-slate-900 hover:bg-[#ECE5D5]"
+                : "bg-slate-100 text-slate-900 hover:bg-slate-200"
             }
             focus:outline-none
           `}
@@ -394,7 +394,7 @@ function SelectRow({ id, value, options, onChange }: SelectRowProps) {
               absolute left-0 right-0 top-[calc(100%+4px)] z-30
               max-h-64 overflow-y-auto
               rounded-2xl bg-white p-1.5
-              shadow-[0_16px_36px_-8px_rgba(41,32,20,0.25)]
+              shadow-[0_16px_36px_-8px_rgba(15,23,42,0.25)]
             "
           >
             {options.map((name, i) => {

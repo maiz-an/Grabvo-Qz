@@ -53,8 +53,8 @@ export function Button({
 
   const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
     primary: "bg-violet-600 text-white hover:bg-violet-700 shadow-[0_8px_20px_-6px_rgba(124,58,237,0.5)]",
-    outline: "bg-[#F3EEE2] text-slate-700 hover:bg-[#ECE5D5]",
-    ghost: "text-slate-600 hover:bg-[#F3EEE2]",
+    outline: "bg-slate-100 text-slate-700 hover:bg-slate-200",
+    ghost: "text-slate-600 hover:bg-slate-100",
   };
 
   const sizes: Record<NonNullable<ButtonProps["size"]>, string> = {
@@ -180,7 +180,7 @@ export function StatusPill({
       type={onClick ? "button" : undefined}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full bg-[#FBF8F2] px-3.5 py-1.5 text-[11px] font-semibold shadow-[0_4px_14px_-6px_rgba(41,32,20,0.18)]",
+        "inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-[11px] font-semibold shadow-[0_4px_14px_-6px_rgba(15,23,42,0.18)]",
         cfg.text,
         className
       )}
@@ -216,8 +216,8 @@ export function StatChip({
       type={onClick ? "button" : undefined}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-2.5 rounded-full px-3.5 py-2 text-left shadow-[0_4px_14px_-6px_rgba(41,32,20,0.14)]",
-        tone === "warning" ? "bg-amber-50" : "bg-[#FBF8F2]"
+        "flex items-center gap-2.5 rounded-full px-3.5 py-2 text-left shadow-[0_4px_14px_-6px_rgba(15,23,42,0.14)]",
+        tone === "warning" ? "bg-amber-50" : "bg-white"
       )}
     >
       <i
