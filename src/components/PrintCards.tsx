@@ -15,7 +15,7 @@ interface PrintCardsProps {
   onPrintCancellation: () => Promise<void>;
 }
 
-interface PrintCardProps {
+interface PrintRowProps {
   title: string;
   description: string;
   badge: string;
@@ -25,7 +25,7 @@ interface PrintCardProps {
   onPrint: () => Promise<void>;
 }
 
-function PrintCard({
+function PrintRow({
   title,
   description,
   badge,
@@ -33,7 +33,7 @@ function PrintCard({
   printer,
   onPreview,
   onPrint,
-}: PrintCardProps) {
+}: PrintRowProps) {
   const [printing, setPrinting] = useState(false);
 
   // A print action needs a printer. Preview does not — you can always
@@ -51,44 +51,49 @@ function PrintCard({
   };
 
   return (
-    <Card padding="none" className="flex flex-col gap-3 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 flex-none items-center justify-center rounded-md bg-slate-100 text-[13px] text-slate-500">
-            <i className={`fa-solid ${icon}`} aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <div className="text-[13.5px] font-semibold leading-tight text-slate-900">
-              {title}
-            </div>
-            <div className="mt-0.5 text-[11.5px] leading-snug text-slate-400">
-              {description}
-            </div>
+    <li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
+      {/* Identity column — fixed width on desktop so every row lines up */}
+      <div className="flex min-w-0 items-center gap-3 sm:w-[260px] sm:flex-none">
+        <span className="flex h-8 w-8 flex-none items-center justify-center rounded-md bg-slate-100 text-[13px] text-slate-500">
+          <i className={`fa-solid ${icon}`} aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <div className="text-[13.5px] font-semibold leading-tight text-slate-900">
+            {title}
+          </div>
+          <div className="truncate text-[11.5px] leading-snug text-slate-400">
+            {description}
           </div>
         </div>
-        <span className="flex-none whitespace-nowrap text-[10px] font-medium uppercase tracking-[0.08em] text-slate-400">
+      </div>
+
+      {/* Meta column — badge + printer status, grows to fill the row */}
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px]">
+        <span className="flex-none font-medium uppercase tracking-[0.06em] text-slate-400">
           {badge}
+        </span>
+        <span className="text-slate-200">·</span>
+        <span
+          className={
+            "flex min-w-0 items-center gap-1.5 " +
+            (hasPrinter ? "text-slate-500" : "italic text-amber-600")
+          }
+        >
+          <i
+            className={`fa-solid ${hasPrinter ? "fa-print" : "fa-circle-exclamation"} text-[10px] flex-none`}
+            aria-hidden="true"
+          />
+          <span className="truncate">
+            {hasPrinter ? printer : "No printer assigned"}
+          </span>
         </span>
       </div>
 
-      <div
-        className={
-          "flex min-h-[38px] items-center gap-2 break-all rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-[12px] font-medium leading-snug " +
-          (hasPrinter ? "text-slate-700" : "italic text-slate-400")
-        }
-      >
-        <i
-          className={`fa-solid ${hasPrinter ? "fa-print" : "fa-circle-exclamation"} text-[11px] ${hasPrinter ? "text-slate-400" : "text-amber-500"}`}
-          aria-hidden="true"
-        />
-        {hasPrinter ? printer : "No printer assigned"}
-      </div>
-
-      <div className="flex gap-2">
+      {/* Actions column — fixed on the right */}
+      <div className="flex flex-none gap-2">
         <Button
           variant="outline"
           size="sm"
-          className="flex-1"
           onClick={onPreview}
           icon={<i className="fa-solid fa-eye" aria-hidden="true" />}
         >
@@ -97,7 +102,6 @@ function PrintCard({
         <Button
           variant="primary"
           size="sm"
-          className="flex-1"
           loading={printing}
           onClick={handlePrint}
           disabled={!hasPrinter}
@@ -106,15 +110,7 @@ function PrintCard({
           Print
         </Button>
       </div>
-
-      {!hasPrinter && (
-        <p className="text-center text-[11px] text-slate-400">
-          Assign a printer in the{" "}
-          <b className="font-medium text-slate-500">Printers</b> tab to
-          enable printing.
-        </p>
-      )}
-    </Card>
+    </li>
   );
 }
 
@@ -131,44 +127,46 @@ export function PrintCards({
   onPrintCancellation,
 }: PrintCardsProps) {
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-      <PrintCard
-        title="Order Receipt"
-        description="Handed to the customer before they pay"
-        badge="before payment"
-        icon="fa-file-invoice"
-        printer={receiptPrinter}
-        onPreview={onPreviewBill}
-        onPrint={onPrintBill}
-      />
-      <PrintCard
-        title="Checkout Receipt"
-        description="The final, paid copy of the order"
-        badge="after payment"
-        icon="fa-receipt"
-        printer={receiptPrinter}
-        onPreview={onPreviewReceipt}
-        onPrint={onPrintReceipt}
-      />
-      <PrintCard
-        title="Preparation Receipt"
-        description="Sent to the kitchen or bar to prepare"
-        badge="KOT / BOT"
-        icon="fa-kitchen-set"
-        printer={ticketPrinter}
-        onPreview={onPreviewTicket}
-        onPrint={onPrintTicket}
-      />
-      <PrintCard
-        title="Cancellation Receipt"
-        description="Flags a voided order to the kitchen"
-        badge="void order"
-        icon="fa-ban"
-        printer={ticketPrinter}
-        onPreview={onPreviewCancellation}
-        onPrint={onPrintCancellation}
-      />
-    </div>
+    <Card padding="none">
+      <ul className="divide-y divide-slate-100">
+        <PrintRow
+          title="Order Receipt"
+          description="Before payment"
+          badge="before payment"
+          icon="fa-file-invoice"
+          printer={receiptPrinter}
+          onPreview={onPreviewBill}
+          onPrint={onPrintBill}
+        />
+        <PrintRow
+          title="Checkout Receipt"
+          description="After payment"
+          badge="after payment"
+          icon="fa-receipt"
+          printer={receiptPrinter}
+          onPreview={onPreviewReceipt}
+          onPrint={onPrintReceipt}
+        />
+        <PrintRow
+          title="Preparation Receipt"
+          description="Kitchen or bar"
+          badge="KOT / BOT"
+          icon="fa-kitchen-set"
+          printer={ticketPrinter}
+          onPreview={onPreviewTicket}
+          onPrint={onPrintTicket}
+        />
+        <PrintRow
+          title="Cancellation Receipt"
+          description="Voided order"
+          badge="void order"
+          icon="fa-ban"
+          printer={ticketPrinter}
+          onPreview={onPreviewCancellation}
+          onPrint={onPrintCancellation}
+        />
+      </ul>
+    </Card>
   );
 }
 

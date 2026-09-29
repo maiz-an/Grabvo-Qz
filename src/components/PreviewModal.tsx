@@ -306,7 +306,7 @@ export function PreviewModal({
             ========================================================== */}
         {canSimulate && (
           <div className="flex flex-none justify-center border-b border-slate-200 bg-white px-6 py-2.5">
-            <span className="rounded bg-slate-900 px-3 py-1 text-[11px] font-medium text-white">
+            <span className="rounded bg-violet-600 px-3 py-1 text-[11px] font-medium text-white">
               Exact print (ESC/POS)
             </span>
           </div>

@@ -1,16 +1,15 @@
 import React, { useCallback, useEffect, useState } from "react";
 
 import { Background } from "@/components/Background";
-import { Header } from "@/components/Header";
-import { ActionButtons } from "@/components/ActionButtons";
-import { PrinterPanel } from "@/components/PrinterPanel";
-import { ConnectionModePanel } from "@/components/ConnectionModePanel";
+import { Sidebar, MobileTopBar, type TabId } from "@/components/Sidebar";
+import { PageHeader } from "@/components/PageHeader";
+import { PrinterSettingsPanel } from "@/components/PrinterSettingsPanel";
 import { PrintCards } from "@/components/PrintCards";
 import { PreviewModal, type PreviewKind } from "@/components/PreviewModal";
 import { SetupPanel } from "@/components/SetupPanel";
 import { Toasts } from "@/components/Toasts";
 import { SplashScreen } from "@/components/SplashScreen";
-import Card from "@/components/Card";
+import { StatChip } from "@/components/ui";
 
 import { receiptConfig } from "@/config/receipt-config";
 import { buildReceiptHtml } from "@/templates/receipt-template";
@@ -30,15 +29,28 @@ import {
   type ConnectionMode,
 } from "@/lib/storage";
 
-type TabId = "print" | "printers" | "setup";
+const MODE_LABEL: Record<ConnectionMode, string> = {
+  direct: "Direct QZ Tray",
+  agent: "Print Agent",
+};
 
-const TABS: { id: TabId; label: string; icon: string }[] = [
-  { id: "print", label: "Print", icon: "fa-print" },
-  { id: "printers", label: "Printers", icon: "fa-plug-circle-bolt" },
-  { id: "setup", label: "Setup", icon: "fa-shield-halved" },
-];
-
-const SUPPORT_EMAIL = "support@grabvo.app";
+const PAGE_COPY: Record<TabId, { title: string; description: string }> = {
+  print: {
+    title: "Print",
+    description:
+      "Preview and send receipts & kitchen tickets — printed instantly once a printer is assigned.",
+  },
+  printers: {
+    title: "Printers",
+    description:
+      "Connect to QZ Tray and assign which printer handles receipts vs. kitchen tickets.",
+  },
+  setup: {
+    title: "Setup",
+    description:
+      "Install QZ Tray and trust the Grabvo certificate so printing runs silently, with no popups.",
+  },
+};
 
 export default function App() {
   const { toasts, showToast } = useToast();
@@ -180,12 +192,7 @@ export default function App() {
     return () => document.removeEventListener("keydown", onKey);
   }, [previewKind, closePreview]);
 
-  /* ---------- scroll reset on tab change ----------
-     The whole page scrolls together (header included) — so when the user
-     switches tabs while scrolled down, hard-jump back to the top. That
-     way the header is always the first thing visible after a tab switch,
-     without ever pinning anything. `behavior: "instant"` forces a hard
-     jump regardless of any global scroll-behavior setting. */
+  /* ---------- scroll reset on tab change ---------- */
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }, [activeTab]);
@@ -205,18 +212,16 @@ export default function App() {
     return buildTicketHtml();
   })();
 
-  /* ---------- iOS segmented-control index ---------- */
-  const activeIndex = TABS.findIndex((t) => t.id === activeTab);
-
-  /* ---------- Printers tab attention dot ----------
-     Surfaces in the tab bar itself when something there needs the
-     user's attention: QZ Tray unreachable, or connected but a printer
-     still isn't assigned. Cleared once everything's wired up. */
+  /* ---------- Printers nav attention dot ----------
+     Surfaces when something needs the user's attention: QZ Tray
+     unreachable, or connected but a printer still isn't assigned. */
   const printersNeedAttention =
     status === "error" ||
     (status === "connected" && (!receiptPrinter || !ticketPrinter));
 
   const goToPrinters = useCallback(() => setActiveTab("printers"), []);
+
+  const page = PAGE_COPY[activeTab];
 
   return (
     <>
@@ -239,162 +244,93 @@ export default function App() {
       />
 
       {/* ==================================================================
-          ONE SCROLL CONTAINER — header, tab bar, and tab panels all live
-          in this single column. Nothing is sticky. The whole page scrolls
-          as one unit, header included, exactly like the original layout.
+          DASHBOARD SHELL — persistent sidebar (desktop) / bottom tab bar
+          (mobile) on the left, scrollable content on the right.
           ================================================================== */}
-      <div className="relative z-[2] mx-auto max-w-[820px] px-4 pb-16 pt-12 sm:px-6 sm:pt-16">
-        <Header
+      <div className="relative z-[2] flex min-h-screen">
+        <Sidebar
+          activeTab={activeTab}
+          onSelectTab={setActiveTab}
           status={status}
-          connectionMode={connectionMode}
-          printerCount={printers.length}
-          receiptPrinter={receiptPrinter}
-          ticketPrinter={ticketPrinter}
-          onGoToPrinters={goToPrinters}
+          needsAttention={printersNeedAttention}
+          onStatusClick={goToPrinters}
         />
 
-        {/* Segmented tab control — flat, solid active state, no motion */}
-        <div
-          className="relative mb-6 flex rounded-md border border-slate-200 p-1"
-          role="tablist"
-          aria-label="App sections"
-        >
-          {/* Sliding indicator — sits behind the buttons (z-0), buttons sit at z-10 */}
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute top-1 bottom-1 left-1 z-0 rounded bg-slate-900"
-            style={{
-              width: `calc((100% - 0.5rem) / ${TABS.length})`,
-              transform: `translateX(${activeIndex * 100}%)`,
-              transition: "transform 200ms ease-out",
-            }}
-          />
-
-          {TABS.map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => setActiveTab(tab.id)}
-                className={`relative z-10 inline-flex flex-1 items-center justify-center gap-2 rounded px-4 py-2 text-[13px] font-medium ${
-                  isActive
-                    ? "text-white"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                <span className="relative inline-flex">
-                  <i
-                    className={`fa-solid ${tab.icon} text-[12px] ${
-                      isActive ? "text-white" : "text-slate-400"
-                    }`}
-                    aria-hidden="true"
-                  />
-                  {tab.id === "printers" && printersNeedAttention && (
-                    <span
-                      className="absolute -right-1.5 -top-1.5 h-1.5 w-1.5 rounded-full bg-red-500 ring-2 ring-slate-100"
-                      aria-hidden="true"
+        <main className="min-w-0 flex-1 pb-20 md:pb-0">
+          <MobileTopBar status={status} onStatusClick={goToPrinters} />
+          <div className="mx-auto max-w-[880px] px-4 py-6 sm:px-8 sm:py-8">
+            {activeTab === "print" && (
+              <div key="print" className="animate-[fadeIn_180ms_ease-out_forwards]">
+                <PageHeader title={page.title} description={page.description}>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <StatChip
+                      icon="fa-route"
+                      label="Connection"
+                      value={MODE_LABEL[connectionMode]}
+                      onClick={goToPrinters}
                     />
-                  )}
-                </span>
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+                    <StatChip
+                      icon="fa-receipt"
+                      label="Receipt printer"
+                      value={receiptPrinter || "Not assigned"}
+                      tone={receiptPrinter ? "neutral" : "warning"}
+                      onClick={goToPrinters}
+                    />
+                    <StatChip
+                      icon="fa-kitchen-set"
+                      label="Ticket printer"
+                      value={ticketPrinter || "Not assigned"}
+                      tone={ticketPrinter ? "neutral" : "warning"}
+                      onClick={goToPrinters}
+                    />
+                  </div>
+                </PageHeader>
 
-        {/* ---------------------------------------------
-            Tab panels — one visible at a time.
-            Each panel starts at the same Y offset (0), with the same
-            internal vertical rhythm, so nothing shifts the header.
-            --------------------------------------------- */}
-        {activeTab === "print" && (
-          <div
-            key="print"
-            className="animate-[fadeIn_220ms_ease-out_forwards] flex flex-col gap-3"
-          >
-            <PrintCards
-              receiptPrinter={receiptPrinter}
-              ticketPrinter={ticketPrinter}
-              onPreviewReceipt={() => handlePreview("receipt")}
-              onPreviewBill={() => handlePreview("bill")}
-              onPreviewTicket={() => handlePreview("ticket")}
-              onPreviewCancellation={() => handlePreview("cancellation")}
-              onPrintReceipt={handlePrintReceipt}
-              onPrintBill={handlePrintBill}
-              onPrintTicket={handlePrintTicket}
-              onPrintCancellation={handlePrintCancellation}
-            />
+                <PrintCards
+                  receiptPrinter={receiptPrinter}
+                  ticketPrinter={ticketPrinter}
+                  onPreviewReceipt={() => handlePreview("receipt")}
+                  onPreviewBill={() => handlePreview("bill")}
+                  onPreviewTicket={() => handlePreview("ticket")}
+                  onPreviewCancellation={() => handlePreview("cancellation")}
+                  onPrintReceipt={handlePrintReceipt}
+                  onPrintBill={handlePrintBill}
+                  onPrintTicket={handlePrintTicket}
+                  onPrintCancellation={handlePrintCancellation}
+                />
+              </div>
+            )}
+
+            {activeTab === "printers" && (
+              <div key="printers" className="animate-[fadeIn_180ms_ease-out_forwards]">
+                <PageHeader title={page.title} description={page.description} />
+                <PrinterSettingsPanel
+                  status={status}
+                  printers={printers}
+                  errorMessage={errorMessage}
+                  receiptPrinter={receiptPrinter}
+                  ticketPrinter={ticketPrinter}
+                  onSelect={handlePrinterSelect}
+                  connectionMode={connectionMode}
+                  agentUrl={agentUrl}
+                  onModeChange={handleConnectionModeChange}
+                  onAgentUrlChange={handleAgentUrlChange}
+                  connecting={connecting}
+                  refreshing={refreshing}
+                  onConnect={handleConnect}
+                  onRefresh={handleRefresh}
+                />
+              </div>
+            )}
+
+            {activeTab === "setup" && (
+              <div key="setup" className="animate-[fadeIn_180ms_ease-out_forwards]">
+                <PageHeader title={page.title} description={page.description} />
+                <SetupPanel />
+              </div>
+            )}
           </div>
-        )}
-
-        {activeTab === "printers" && (
-          <div
-            key="printers"
-            className="animate-[fadeIn_220ms_ease-out_forwards] flex flex-col gap-3"
-          >
-            <ConnectionModePanel
-              mode={connectionMode}
-              agentUrl={agentUrl}
-              onModeChange={handleConnectionModeChange}
-              onAgentUrlChange={handleAgentUrlChange}
-            />
-            <Card padding="none" className="p-5">
-              <ActionButtons
-                connecting={connecting}
-                refreshing={refreshing}
-                onConnect={handleConnect}
-                onRefresh={handleRefresh}
-              />
-            </Card>
-            <PrinterPanel
-              status={status}
-              printers={printers}
-              errorMessage={errorMessage}
-              receiptPrinter={receiptPrinter}
-              ticketPrinter={ticketPrinter}
-              onSelect={handlePrinterSelect}
-            />
-          </div>
-        )}
-
-        {activeTab === "setup" && (
-          <div
-            key="setup"
-            className="animate-[fadeIn_220ms_ease-out_forwards] flex flex-col gap-3"
-          >
-            <SetupPanel />
-          </div>
-        )}
-
-        {/* ---------------------------------------------
-            Global footer — always visible on every tab.
-            A quiet support line, matching the app's overall tone, plus
-            the app version (injected from package.json at build time).
-            --------------------------------------------- */}
-        <footer className="mt-10 flex flex-col items-center gap-2 text-center">
-          <div className="flex items-center gap-2 text-[11.5px] leading-relaxed text-slate-400">
-            <i
-              className="fa-solid fa-circle-question text-violet-400"
-              aria-hidden="true"
-            />
-            <span>
-              Need help? Reach us at{" "}
-              <a
-                href={`mailto:${SUPPORT_EMAIL}`}
-                className="font-semibold text-violet-600 underline decoration-violet-200 underline-offset-2 transition hover:decoration-violet-500"
-              >
-                {SUPPORT_EMAIL}
-              </a>
-            </span>
-          </div>
-
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-300">
-            Grabvo · QZ Print Setup · v{__APP_VERSION__}
-          </p>
-        </footer>
+        </main>
       </div>
     </>
   );

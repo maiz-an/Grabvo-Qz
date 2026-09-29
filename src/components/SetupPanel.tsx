@@ -89,7 +89,7 @@ function OsSwitcher({ value, onChange }: OsSwitcherProps) {
             onClick={() => onChange(os)}
             className={`rounded px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.06em] ${
               isActive
-                ? "bg-slate-900 text-white"
+                ? "bg-violet-600 text-white"
                 : "text-slate-500 hover:text-slate-700"
             }`}
           >
@@ -109,7 +109,7 @@ interface StepProps {
 function Step({ n, children }: StepProps) {
   return (
     <li className="flex items-start gap-3">
-      <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-slate-900 text-[11px] font-semibold text-white">
+      <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-violet-600 text-[11px] font-semibold text-white">
         {n}
       </span>
       <span className="pt-0.5 text-[12.5px] leading-relaxed text-slate-600">
