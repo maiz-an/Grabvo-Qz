@@ -344,9 +344,10 @@ set "FONTFIX_PS1=%TEMP%\grabvo_fontfix_%RANDOM%.ps1"
     echo         CONSOLE_FONT_INFO_EX info = new CONSOLE_FONT_INFO_EX^(^);
     echo         info.cbSize = ^(uint^)Marshal.SizeOf^(info^);
     echo         info.FontFamily = 4;
+    echo         info.FontWeight = 400;
     echo         info.FontName = "Consolas";
     echo         info.dwFontSize.X = 0;
-    echo         info.dwFontSize.Y = 16;
+    echo         info.dwFontSize.Y = 14;
     echo         SetCurrentConsoleFontEx^(h, false, ref info^);
     echo     }
     echo }
