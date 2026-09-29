@@ -74,7 +74,7 @@ interface OsSwitcherProps {
 function OsSwitcher({ value, onChange }: OsSwitcherProps) {
   return (
     <div
-      className="flex items-center gap-0.5 rounded-md border border-slate-200 p-0.5"
+      className="flex items-center gap-0.5 rounded-full bg-[#F3EEE2] p-0.5"
       role="tablist"
       aria-label="Switch operating system"
     >
@@ -87,7 +87,7 @@ function OsSwitcher({ value, onChange }: OsSwitcherProps) {
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(os)}
-            className={`rounded px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.06em] ${
+            className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.06em] ${
               isActive
                 ? "bg-violet-600 text-white"
                 : "text-slate-500 hover:text-slate-700"
@@ -127,7 +127,7 @@ function Step({ n, children }: StepProps) {
    ------------------------------------------------------------------------- */
 function PrintAgentSection({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-2xl bg-[#F3EEE2] p-4">
       <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-900">
         <i className="fa-solid fa-route text-slate-500" aria-hidden="true" />
         Optional: Print Agent (for phones/tablets)
@@ -163,14 +163,14 @@ function CopyCommand({ command }: { command: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3.5 py-2.5">
+    <div className="flex items-center gap-2 rounded-xl bg-[#F3EEE2] px-3.5 py-2.5">
       <code className="min-w-0 flex-1 overflow-x-auto whitespace-pre text-[11.5px] text-slate-600">
         {command}
       </code>
       <button
         type="button"
         onClick={handleCopy}
-        className="flex-none rounded px-2.5 py-1.5 text-[11px] font-semibold text-violet-600 hover:bg-slate-50"
+        className="flex-none rounded-full px-2.5 py-1.5 text-[11px] font-semibold text-violet-600 hover:bg-white/70"
       >
         <i
           className={`fa-solid ${copied ? "fa-check" : "fa-copy"}`}
@@ -254,13 +254,13 @@ function WindowsSetup() {
       <a
         href="./Qz-Grabvo.cmd"
         download="Qz-Grabvo.cmd"
-        className="inline-flex items-center justify-center gap-2 rounded-md bg-violet-600 px-5 py-3 text-[13px] font-semibold text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
+        className="inline-flex items-center justify-center gap-2 rounded-full bg-violet-600 px-5 py-3 text-[13px] font-semibold text-white shadow-[0_8px_20px_-6px_rgba(124,58,237,0.5)] hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
       >
         <i className="fa-solid fa-download" aria-hidden="true" />
         Download Qz-Grabvo.cmd
       </a>
 
-      <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+      <div className="rounded-2xl bg-[#F3EEE2] p-4">
         <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-900">
           How to run it
         </div>
@@ -288,7 +288,7 @@ function WindowsSetup() {
         </ol>
       </div>
 
-      <div className="flex items-start gap-2 rounded-md border border-slate-200 bg-white p-3.5 text-[11.5px] leading-relaxed text-slate-400">
+      <div className="flex items-start gap-2 rounded-2xl bg-[#F3EEE2]/60 p-3.5 text-[11.5px] leading-relaxed text-slate-400">
         <i
           className="fa-solid fa-circle-info mt-0.5 text-slate-400"
           aria-hidden="true"
@@ -297,7 +297,7 @@ function WindowsSetup() {
           The script only touches this computer&apos;s QZ Tray installation.
           It downloads the official QZ Tray installer from GitHub and the
           Grabvo certificate from{" "}
-          <code className="rounded bg-slate-50 px-1.5 py-0.5 text-slate-600 ring-1 ring-slate-200">
+          <code className="rounded-md bg-[#ECE5D5] px-1.5 py-0.5 text-slate-600">
             qz.grabvo.app
           </code>
           .
@@ -308,7 +308,7 @@ function WindowsSetup() {
         <a
           href="./GrabvoPrintPing-Setup.cmd"
           download="GrabvoPrintPing-Setup.cmd"
-          className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-5 py-3 text-[13px] font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-[13px] font-semibold text-slate-700 hover:bg-white/70 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
         >
           <i className="fa-solid fa-download" aria-hidden="true" />
           Download GrabvoPrintPing-Setup.cmd
@@ -343,7 +343,7 @@ function UnixQzTraySetup() {
 
       <CopyCommand command="curl -fsSL https://qz.grabvo.app/Qz-Grabvo.sh | bash" />
 
-      <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+      <div className="rounded-2xl bg-[#F3EEE2] p-4">
         <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-900">
           What it does
         </div>
@@ -364,7 +364,7 @@ function UnixQzTraySetup() {
         </ol>
       </div>
 
-      <div className="flex items-start gap-2 rounded-md border border-slate-200 bg-white p-3.5 text-[11.5px] leading-relaxed text-slate-400">
+      <div className="flex items-start gap-2 rounded-2xl bg-[#F3EEE2]/60 p-3.5 text-[11.5px] leading-relaxed text-slate-400">
         <i
           className="fa-solid fa-circle-info mt-0.5 text-slate-400"
           aria-hidden="true"
@@ -378,14 +378,14 @@ function UnixQzTraySetup() {
           >
             Download Qz-Grabvo.sh
           </a>{" "}
-          and run <code className="rounded bg-slate-50 px-1.5 py-0.5 text-slate-600 ring-1 ring-slate-200">bash Qz-Grabvo.sh</code>{" "}
+          and run <code className="rounded-md bg-[#ECE5D5] px-1.5 py-0.5 text-slate-600">bash Qz-Grabvo.sh</code>{" "}
           — it downloads the official QZ Tray installer from GitHub and
           the Grabvo certificate from{" "}
-          <code className="rounded bg-slate-50 px-1.5 py-0.5 text-slate-600 ring-1 ring-slate-200">
+          <code className="rounded-md bg-[#ECE5D5] px-1.5 py-0.5 text-slate-600">
             qz.grabvo.app
           </code>
           . To remove QZ Tray later, run{" "}
-          <code className="rounded bg-slate-50 px-1.5 py-0.5 text-slate-600 ring-1 ring-slate-200">
+          <code className="rounded-md bg-[#ECE5D5] px-1.5 py-0.5 text-slate-600">
             curl -fsSL https://qz.grabvo.app/Qz-Grabvo-Uninstall.sh | bash
           </code>
           .

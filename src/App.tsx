@@ -1,15 +1,13 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
-import { Background } from "@/components/Background";
-import { Sidebar, MobileTopBar, type TabId } from "@/components/Sidebar";
-import { PageHeader } from "@/components/PageHeader";
+import { Logo } from "@/components/Logo";
 import { PrinterSettingsPanel } from "@/components/PrinterSettingsPanel";
 import { PrintCards } from "@/components/PrintCards";
 import { PreviewModal, type PreviewKind } from "@/components/PreviewModal";
 import { SetupPanel } from "@/components/SetupPanel";
 import { Toasts } from "@/components/Toasts";
 import { SplashScreen } from "@/components/SplashScreen";
-import { StatChip } from "@/components/ui";
+import { StatusPill, StatChip, Eyebrow } from "@/components/ui";
 
 import { receiptConfig } from "@/config/receipt-config";
 import { buildReceiptHtml } from "@/templates/receipt-template";
@@ -34,23 +32,7 @@ const MODE_LABEL: Record<ConnectionMode, string> = {
   agent: "Print Agent",
 };
 
-const PAGE_COPY: Record<TabId, { title: string; description: string }> = {
-  print: {
-    title: "Print",
-    description:
-      "Preview and send receipts & kitchen tickets — printed instantly once a printer is assigned.",
-  },
-  printers: {
-    title: "Printers",
-    description:
-      "Connect to QZ Tray and assign which printer handles receipts vs. kitchen tickets.",
-  },
-  setup: {
-    title: "Setup",
-    description:
-      "Install QZ Tray and trust the Grabvo certificate so printing runs silently, with no popups.",
-  },
-};
+const SUPPORT_EMAIL = "support@grabvo.app";
 
 export default function App() {
   const { toasts, showToast } = useToast();
@@ -66,9 +48,6 @@ export default function App() {
 
   /* ---------- splash (first paint only) ---------- */
   const [splashDone, setSplashDone] = useState(false);
-
-  /* ---------- tab state ---------- */
-  const [activeTab, setActiveTab] = useState<TabId>("print");
 
   /* ---------- persisted printer selections ---------- */
   const [receiptPrinter, setReceiptPrinter] = useState<string>(() =>
@@ -192,11 +171,6 @@ export default function App() {
     return () => document.removeEventListener("keydown", onKey);
   }, [previewKind, closePreview]);
 
-  /* ---------- scroll reset on tab change ---------- */
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
-  }, [activeTab]);
-
   /* ---------- generate the preview HTML on demand ---------- */
   const previewHtml = (() => {
     if (!previewKind) return "";
@@ -212,22 +186,20 @@ export default function App() {
     return buildTicketHtml();
   })();
 
-  /* ---------- Printers nav attention dot ----------
-     Surfaces when something needs the user's attention: QZ Tray
-     unreachable, or connected but a printer still isn't assigned. */
-  const printersNeedAttention =
-    status === "error" ||
-    (status === "connected" && (!receiptPrinter || !ticketPrinter));
-
-  const goToPrinters = useCallback(() => setActiveTab("printers"), []);
-
-  const page = PAGE_COPY[activeTab];
+  /* ---------- single-page layout: jump-to-section instead of tabs ----------
+     There's no navigation shell anymore - everything lives on one
+     scrolling page. The status pill / glance chips still act as
+     shortcuts, they just smooth-scroll to the Printers section instead
+     of switching a tab. */
+  const printersRef = useRef<HTMLDivElement>(null);
+  const scrollToPrinters = useCallback(() => {
+    printersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   return (
     <>
       {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
 
-      <Background />
       <Toasts toasts={toasts} />
 
       <PreviewModal
@@ -243,94 +215,125 @@ export default function App() {
         }
       />
 
-      {/* ==================================================================
-          DASHBOARD SHELL — persistent sidebar (desktop) / bottom tab bar
-          (mobile) on the left, scrollable content on the right.
-          ================================================================== */}
-      <div className="relative z-[2] flex min-h-screen">
-        <Sidebar
-          activeTab={activeTab}
-          onSelectTab={setActiveTab}
-          status={status}
-          needsAttention={printersNeedAttention}
-          onStatusClick={goToPrinters}
-        />
+      <div className="relative z-[2] min-h-screen">
+        <div className="mx-auto max-w-[1080px] px-4 py-10 sm:px-8 sm:py-14">
+          {/* ============================================================
+              HERO — brand + live status, no navigation
+              ============================================================ */}
+          <header className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <Eyebrow className="mb-3 text-violet-600">
+                Grabvo · Print Console
+              </Eyebrow>
+              <Logo className="text-6xl sm:text-7xl" />
+              <p className="mt-3 max-w-[52ch] text-[13.5px] leading-relaxed text-slate-500">
+                Preview and send receipts &amp; kitchen tickets straight to
+                QZ Tray — every request signed server-side, every order
+                prints silently, no popups.
+              </p>
+            </div>
+            <StatusPill status={status} onClick={scrollToPrinters} />
+          </header>
 
-        <main className="min-w-0 flex-1 pb-20 md:pb-0">
-          <MobileTopBar status={status} onStatusClick={goToPrinters} />
-          <div className="mx-auto max-w-[880px] px-4 py-6 sm:px-8 sm:py-8">
-            {activeTab === "print" && (
-              <div key="print" className="animate-[fadeIn_180ms_ease-out_forwards]">
-                <PageHeader title={page.title} description={page.description}>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    <StatChip
-                      icon="fa-route"
-                      label="Connection"
-                      value={MODE_LABEL[connectionMode]}
-                      onClick={goToPrinters}
-                    />
-                    <StatChip
-                      icon="fa-receipt"
-                      label="Receipt printer"
-                      value={receiptPrinter || "Not assigned"}
-                      tone={receiptPrinter ? "neutral" : "warning"}
-                      onClick={goToPrinters}
-                    />
-                    <StatChip
-                      icon="fa-kitchen-set"
-                      label="Ticket printer"
-                      value={ticketPrinter || "Not assigned"}
-                      tone={ticketPrinter ? "neutral" : "warning"}
-                      onClick={goToPrinters}
-                    />
-                  </div>
-                </PageHeader>
-
-                <PrintCards
-                  receiptPrinter={receiptPrinter}
-                  ticketPrinter={ticketPrinter}
-                  onPreviewReceipt={() => handlePreview("receipt")}
-                  onPreviewBill={() => handlePreview("bill")}
-                  onPreviewTicket={() => handlePreview("ticket")}
-                  onPreviewCancellation={() => handlePreview("cancellation")}
-                  onPrintReceipt={handlePrintReceipt}
-                  onPrintBill={handlePrintBill}
-                  onPrintTicket={handlePrintTicket}
-                  onPrintCancellation={handlePrintCancellation}
-                />
-              </div>
-            )}
-
-            {activeTab === "printers" && (
-              <div key="printers" className="animate-[fadeIn_180ms_ease-out_forwards]">
-                <PageHeader title={page.title} description={page.description} />
-                <PrinterSettingsPanel
-                  status={status}
-                  printers={printers}
-                  errorMessage={errorMessage}
-                  receiptPrinter={receiptPrinter}
-                  ticketPrinter={ticketPrinter}
-                  onSelect={handlePrinterSelect}
-                  connectionMode={connectionMode}
-                  agentUrl={agentUrl}
-                  onModeChange={handleConnectionModeChange}
-                  onAgentUrlChange={handleAgentUrlChange}
-                  connecting={connecting}
-                  refreshing={refreshing}
-                  onConnect={handleConnect}
-                  onRefresh={handleRefresh}
-                />
-              </div>
-            )}
-
-            {activeTab === "setup" && (
-              <div key="setup" className="animate-[fadeIn_180ms_ease-out_forwards]">
-                <PageHeader title={page.title} description={page.description} />
-                <SetupPanel />
-              </div>
-            )}
+          {/* Glance strip */}
+          <div className="mb-14 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <StatChip
+              icon="fa-route"
+              label="Connection"
+              value={MODE_LABEL[connectionMode]}
+              onClick={scrollToPrinters}
+            />
+            <StatChip
+              icon="fa-receipt"
+              label="Receipt printer"
+              value={receiptPrinter || "Not assigned"}
+              tone={receiptPrinter ? "neutral" : "warning"}
+              onClick={scrollToPrinters}
+            />
+            <StatChip
+              icon="fa-kitchen-set"
+              label="Ticket printer"
+              value={ticketPrinter || "Not assigned"}
+              tone={ticketPrinter ? "neutral" : "warning"}
+              onClick={scrollToPrinters}
+            />
           </div>
-        </main>
+
+          {/* ============================================================
+              PRINT
+              ============================================================ */}
+          <section className="mb-14">
+            <Eyebrow className="mb-4">Print</Eyebrow>
+            <PrintCards
+              receiptPrinter={receiptPrinter}
+              ticketPrinter={ticketPrinter}
+              onPreviewReceipt={() => handlePreview("receipt")}
+              onPreviewBill={() => handlePreview("bill")}
+              onPreviewTicket={() => handlePreview("ticket")}
+              onPreviewCancellation={() => handlePreview("cancellation")}
+              onPrintReceipt={handlePrintReceipt}
+              onPrintBill={handlePrintBill}
+              onPrintTicket={handlePrintTicket}
+              onPrintCancellation={handlePrintCancellation}
+            />
+          </section>
+
+          {/* ============================================================
+              PRINTERS & CONNECTION
+              ============================================================ */}
+          <section ref={printersRef} className="mb-14 scroll-mt-8">
+            <Eyebrow className="mb-4">Printers &amp; Connection</Eyebrow>
+            <PrinterSettingsPanel
+              status={status}
+              printers={printers}
+              errorMessage={errorMessage}
+              receiptPrinter={receiptPrinter}
+              ticketPrinter={ticketPrinter}
+              onSelect={handlePrinterSelect}
+              connectionMode={connectionMode}
+              agentUrl={agentUrl}
+              onModeChange={handleConnectionModeChange}
+              onAgentUrlChange={handleAgentUrlChange}
+              connecting={connecting}
+              refreshing={refreshing}
+              onConnect={handleConnect}
+              onRefresh={handleRefresh}
+            />
+          </section>
+
+          {/* ============================================================
+              SETUP
+              ============================================================ */}
+          <section className="mb-14">
+            <Eyebrow className="mb-4">Setup</Eyebrow>
+            <SetupPanel />
+          </section>
+
+          {/* ============================================================
+              Footer
+              ============================================================ */}
+          <footer className="flex flex-col items-center gap-2 pt-2 text-center">
+            <div className="flex items-center gap-2 text-[11.5px] leading-relaxed text-slate-400">
+              <i
+                className="fa-solid fa-circle-question text-violet-400"
+                aria-hidden="true"
+              />
+              <span>
+                Need help? Reach us at{" "}
+                <a
+                  href={`mailto:${SUPPORT_EMAIL}`}
+                  className="font-semibold text-violet-600 underline decoration-violet-200 underline-offset-2 transition hover:decoration-violet-500"
+                >
+                  {SUPPORT_EMAIL}
+                </a>
+              </span>
+            </div>
+
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+              Grabvo · QZ Print Setup · v{__APP_VERSION__}
+            </p>
+          </footer>
+        </div>
       </div>
     </>
   );

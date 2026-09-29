@@ -22,32 +22,32 @@ const ACCENT: Record<
   { iconBg: string; iconText: string; badgeBg: string; badgeText: string; shadow: string }
 > = {
   violet: {
-    iconBg: "bg-violet-50",
+    iconBg: "bg-violet-100",
     iconText: "text-violet-600",
-    badgeBg: "bg-violet-50",
-    badgeText: "text-violet-600",
-    shadow: "hover:shadow-[0_12px_28px_-10px_rgba(124,58,237,0.28)] hover:border-violet-200",
+    badgeBg: "bg-violet-100",
+    badgeText: "text-violet-700",
+    shadow: "hover:shadow-[0_16px_36px_-12px_rgba(124,58,237,0.32)]",
   },
   blue: {
-    iconBg: "bg-blue-50",
+    iconBg: "bg-blue-100",
     iconText: "text-blue-600",
-    badgeBg: "bg-blue-50",
-    badgeText: "text-blue-600",
-    shadow: "hover:shadow-[0_12px_28px_-10px_rgba(37,99,235,0.24)] hover:border-blue-200",
+    badgeBg: "bg-blue-100",
+    badgeText: "text-blue-700",
+    shadow: "hover:shadow-[0_16px_36px_-12px_rgba(37,99,235,0.28)]",
   },
   amber: {
-    iconBg: "bg-amber-50",
+    iconBg: "bg-amber-100",
     iconText: "text-amber-600",
-    badgeBg: "bg-amber-50",
-    badgeText: "text-amber-600",
-    shadow: "hover:shadow-[0_12px_28px_-10px_rgba(217,119,6,0.24)] hover:border-amber-200",
+    badgeBg: "bg-amber-100",
+    badgeText: "text-amber-700",
+    shadow: "hover:shadow-[0_16px_36px_-12px_rgba(217,119,6,0.28)]",
   },
   red: {
-    iconBg: "bg-red-50",
+    iconBg: "bg-red-100",
     iconText: "text-red-600",
-    badgeBg: "bg-red-50",
-    badgeText: "text-red-600",
-    shadow: "hover:shadow-[0_12px_28px_-10px_rgba(220,38,38,0.22)] hover:border-red-200",
+    badgeBg: "bg-red-100",
+    badgeText: "text-red-700",
+    shadow: "hover:shadow-[0_16px_36px_-12px_rgba(220,38,38,0.26)]",
   },
 };
 
@@ -104,7 +104,7 @@ function PrintCard({
         whileHover={{ y: -5 }}
         whileTap={{ scale: 0.985 }}
         transition={{ type: "spring", stiffness: 320, damping: 26 }}
-        className={`group flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-[box-shadow,border-color] duration-200 ${cfg.shadow}`}
+        className={`group flex flex-col gap-4 rounded-[1.75rem] bg-[#FBF8F2] p-5 shadow-[0_10px_28px_-10px_rgba(41,32,20,0.14)] transition-shadow duration-200 ${cfg.shadow}`}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -131,7 +131,7 @@ function PrintCard({
 
         <div
           className={
-            "flex min-h-[42px] items-center gap-2 break-all rounded-lg border border-slate-100 bg-slate-50 px-3.5 py-2.5 text-[12px] font-medium leading-snug " +
+            "flex min-h-[42px] items-center gap-2 break-all rounded-xl bg-[#F3EEE2] px-3.5 py-2.5 text-[12px] font-medium leading-snug " +
             (hasPrinter ? "text-slate-700" : "italic text-amber-600")
           }
         >

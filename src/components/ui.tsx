@@ -25,10 +25,10 @@ export function Spinner({
 }
 
 /* -----------------------------------------------------------------
- * Button — flat, no motion:
- *   - primary: solid violet-600, no shadow
- *   - outline: 1px border, plain bg change on hover
- *   - base: font-semibold, color-only transition, no scale/shadow
+ * Button — soft pill (matches the "SOFT/SYSTEM" reference):
+ *   - primary: filled violet-600 pill, white bold label
+ *   - outline: soft ivory pill, hairline-free, just a tone shift
+ *   - base: font-semibold, color-only transition, gentle press scale
  * ----------------------------------------------------------------- */
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "outline" | "ghost";
@@ -49,13 +49,12 @@ export function Button({
   ...rest
 }: ButtonProps) {
   const baseStyles =
-    "inline-flex items-center justify-center font-semibold transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2";
+    "inline-flex items-center justify-center rounded-full font-semibold transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2";
 
   const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
-    primary: "bg-violet-600 text-white hover:bg-violet-700 rounded-md",
-    outline:
-      "border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-md bg-white",
-    ghost: "text-slate-600 hover:bg-slate-100 rounded-md",
+    primary: "bg-violet-600 text-white hover:bg-violet-700 shadow-[0_8px_20px_-6px_rgba(124,58,237,0.5)]",
+    outline: "bg-[#F3EEE2] text-slate-700 hover:bg-[#ECE5D5]",
+    ghost: "text-slate-600 hover:bg-[#F3EEE2]",
   };
 
   const sizes: Record<NonNullable<ButtonProps["size"]>, string> = {
@@ -124,15 +123,26 @@ export function LoadingNote({
 }
 
 /* -----------------------------------------------------------------
- * Section heading — matches the small uppercase tracked labels used
- * throughout the admin app (e.g. stat card labels, page sections).
+ * Eyebrow — bold uppercase tracked section label, no rule line. Marks
+ * the start of a bento section on the single-page layout (mirrors the
+ * "COLOR PALETTE" / "TYPOGRAPHY" tile labels in the reference board).
  * ----------------------------------------------------------------- */
-export function SectionHeading({ children }: { children: React.ReactNode }) {
+export function Eyebrow({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="mt-8 mb-3 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-      <span>{children}</span>
-      <span className="h-px flex-1 bg-slate-200" />
-    </div>
+    <p
+      className={cn(
+        "text-[11px] font-black uppercase tracking-[0.2em] text-slate-500",
+        className
+      )}
+    >
+      {children}
+    </p>
   );
 }
 
@@ -170,7 +180,7 @@ export function StatusPill({
       type={onClick ? "button" : undefined}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-2 rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-medium",
+        "inline-flex items-center gap-2 rounded-full bg-[#FBF8F2] px-3.5 py-1.5 text-[11px] font-semibold shadow-[0_4px_14px_-6px_rgba(41,32,20,0.18)]",
         cfg.text,
         className
       )}
@@ -206,14 +216,14 @@ export function StatChip({
       type={onClick ? "button" : undefined}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-2.5 rounded-md border px-3 py-2 text-left",
-        tone === "warning" ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"
+        "flex items-center gap-2.5 rounded-full px-3.5 py-2 text-left shadow-[0_4px_14px_-6px_rgba(41,32,20,0.14)]",
+        tone === "warning" ? "bg-amber-50" : "bg-[#FBF8F2]"
       )}
     >
       <i
         className={cn(
           `fa-solid ${icon} w-3.5 flex-none text-center text-[12px]`,
-          tone === "warning" ? "text-amber-500" : "text-slate-400"
+          tone === "warning" ? "text-amber-500" : "text-violet-500"
         )}
         aria-hidden="true"
       />

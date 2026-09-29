@@ -73,7 +73,7 @@ export function PrinterSettingsPanel({
       <SettingsCard icon="fa-route" label="Connection" hint="How this device reaches QZ Tray" index={0}>
         <div className="flex flex-col gap-3">
           <div
-            className="flex w-fit items-center gap-0.5 rounded-md border border-slate-200 p-0.5"
+            className="flex w-fit items-center gap-0.5 rounded-full bg-[#F3EEE2] p-0.5"
             role="tablist"
             aria-label="Connection mode"
           >
@@ -86,7 +86,7 @@ export function PrinterSettingsPanel({
                   role="tab"
                   aria-selected={isActive}
                   onClick={() => onModeChange(m)}
-                  className={`rounded px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] ${
+                  className={`rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] ${
                     isActive
                       ? "bg-violet-600 text-white"
                       : "text-slate-500 hover:text-slate-700"
@@ -114,9 +114,9 @@ export function PrinterSettingsPanel({
                 value={agentUrl}
                 onChange={(e) => onAgentUrlChange(e.target.value)}
                 className="
-                  w-full rounded-md border border-slate-200 bg-white px-3.5 py-2.5
+                  w-full rounded-xl bg-[#F3EEE2] px-3.5 py-2.5
                   text-[13px] font-medium text-slate-900 placeholder:text-slate-400
-                  focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-400
+                  focus:outline-none focus:ring-2 focus:ring-violet-400
                 "
               />
               <p className="text-[12px] leading-relaxed text-slate-500">
@@ -216,12 +216,12 @@ function SettingsCard({
       <motion.div
         whileHover={{ y: -4 }}
         transition={{ type: "spring", stiffness: 320, damping: 26 }}
-        className={`flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-[box-shadow,border-color] duration-200 hover:border-violet-200 hover:shadow-[0_12px_28px_-10px_rgba(124,58,237,0.24)] ${
+        className={`flex flex-col gap-3 rounded-[1.75rem] bg-[#FBF8F2] p-5 shadow-[0_10px_28px_-10px_rgba(41,32,20,0.14)] transition-shadow duration-200 hover:shadow-[0_16px_36px_-12px_rgba(124,58,237,0.28)] ${
           dropdown ? "!overflow-visible" : ""
         }`}
       >
         <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-violet-50 text-[13px] text-violet-600">
+          <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-violet-100 text-[13px] text-violet-600">
             <i className={`fa-solid ${icon}`} aria-hidden="true" />
           </span>
           <div className="min-w-0">
@@ -242,10 +242,10 @@ function SettingsCard({
 
 function PlaceholderField({ loading }: { loading: boolean }) {
   if (loading) {
-    return <div className="skeleton-shimmer h-[46px] w-full rounded-md" />;
+    return <div className="skeleton-shimmer h-[46px] w-full rounded-xl" />;
   }
   return (
-    <div className="flex h-[46px] w-full items-center rounded-md border border-dashed border-slate-200 px-3.5 text-[12.5px] italic text-slate-400">
+    <div className="flex h-[46px] w-full items-center rounded-xl bg-[#F3EEE2] px-3.5 text-[12.5px] italic text-slate-400">
       Connect to QZ Tray to see printers
     </div>
   );
@@ -347,13 +347,13 @@ function SelectRow({ id, value, options, onChange }: SelectRowProps) {
           onKeyDown={onKeyDown}
           className={`
             flex w-full items-center gap-3
-            rounded-md border py-2.5 pl-3.5 pr-11
+            rounded-xl py-2.5 pl-3.5 pr-11
             text-left text-[13px] font-medium
-            transition-colors duration-150
+            transition-[box-shadow] duration-150
             ${
               open
-                ? "border-violet-400 bg-white text-slate-900"
-                : "border-slate-200 bg-white text-slate-900 hover:border-slate-300"
+                ? "bg-white text-slate-900 ring-2 ring-violet-400"
+                : "bg-[#F3EEE2] text-slate-900 hover:bg-[#ECE5D5]"
             }
             focus:outline-none
           `}
@@ -393,8 +393,8 @@ function SelectRow({ id, value, options, onChange }: SelectRowProps) {
             className="
               absolute left-0 right-0 top-[calc(100%+4px)] z-30
               max-h-64 overflow-y-auto
-              rounded-md border border-slate-200 bg-white p-1
-              shadow-sm
+              rounded-2xl bg-white p-1.5
+              shadow-[0_16px_36px_-8px_rgba(41,32,20,0.25)]
             "
           >
             {options.map((name, i) => {
@@ -410,7 +410,7 @@ function SelectRow({ id, value, options, onChange }: SelectRowProps) {
                   onClick={() => commit(name)}
                   className={`
                     flex w-full items-center gap-3
-                    rounded px-3 py-2.5 text-left text-[13px]
+                    rounded-xl px-3 py-2.5 text-left text-[13px]
                     ${active ? "bg-violet-50 text-violet-700" : "text-slate-700"}
                   `}
                 >
@@ -444,7 +444,7 @@ function SelectRow({ id, value, options, onChange }: SelectRowProps) {
                   role="option"
                   onClick={() => commit("")}
                   className="
-                    flex w-full items-center gap-3 rounded px-3 py-2.5
+                    flex w-full items-center gap-3 rounded-xl px-3 py-2.5
                     text-left text-[13px] font-medium text-slate-400
                     hover:bg-slate-50 hover:text-slate-600
                   "
