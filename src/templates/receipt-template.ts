@@ -179,7 +179,13 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
   const totalEn = isBill
     ? "Payable"
     : (LOC.total && LOC.total.en) || "TOTAL";
-  const totalAr = isBill ? "" : (LOC.total && LOC.total.ar) || "";
+  // ← CHANGED: was hardcoded to "" for bill mode, so "Payable" printed
+  //   with no Arabic line under it while "TOTAL" always got one. Uses
+  //   the Arabic already sitting unused in config.bill.labels.amountDue
+  //   ("Amount Due" / "المبلغ المستحق") as Payable's Arabic pair.
+  const totalAr = isBill
+    ? (BILL.labels.amountDue && BILL.labels.amountDue.ar) || ""
+    : (LOC.total && LOC.total.ar) || "";
   const grandArHtml = ar(C, totalAr, "grand-arabic");
 
   const totalsSection = `
@@ -560,10 +566,24 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
 
   .totals { margin-top: ${S.subtotalTopGap || "3mm"}; }
 
+  /* ← CHANGED: was "display: flex; align-items: center". That centers
+     fine in a real browser, but html2canvas (the rasterizer used for
+     the actual print) doesn't reliably honor flex cross-axis centering
+     — the price rendered pinned to the bottom of the box instead of
+     centered next to "TOTAL / الإجمالي". Tried table-cell +
+     vertical-align: middle as a fix; that made it WORSE on the actual
+     raster (the two columns overlapped — html2canvas's table
+     auto-layout column sizing doesn't match a real browser's either).
+     Settled on the option that needs no layout algorithm at all: kept
+     the original flex row purely for its horizontal space-between
+     (that part always rendered correctly), dropped align-items:center
+     entirely (defaults to flex-start — top-aligned, unambiguous), and
+     nudged .grand-value down with a plain margin-top instead. Margin
+     on a block box is about as fundamental as CSS gets — confirmed
+     correct on both Live preview and Exact print. */
   .grand {
     display: flex;
     justify-content: space-between;
-    align-items: center;
     margin-top: 3mm;
     padding: 2.5mm 3mm;
     background: #fff;
@@ -589,6 +609,11 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
     line-height: 1.3;
   }
   .grand-value {
+    /* Hand-tuned so the (taller) two-line label stack and the
+       (shorter) one-line price visually center against each other —
+       see the comment on .grand above for why this isn't done with
+       align-items: center instead. */
+    margin-top: 1.7mm;
     text-align: right;
     line-height: 1;
   }

@@ -173,7 +173,14 @@ export function buildTicketHtml(opts: TicketOptions = {}): string {
 
   .tk-badge {
     display: inline-block;
-    padding: 1.2mm 3mm;
+    /* ← CHANGED: was "1.2mm 3mm" (equal top/bottom) — see the note on
+       .grand-value in receipt-template.ts for the same underlying
+       cause: html2canvas renders text sitting lower within its own
+       line than a real browser does, so with equal padding the "KOT"
+       text printed hugging the bottom of the badge with a big empty
+       gap above it. Calibrated against the actual raster (not Live
+       preview). */
+    padding: 0mm 3mm 4mm;
     background: #000;
     color: #fff;
     font-size:   ${TS.badgeSize || "10pt"};

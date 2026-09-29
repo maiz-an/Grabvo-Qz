@@ -445,3 +445,72 @@ to the same html2canvas offset. Didn't chase it further with a
 per-section override to avoid adding fragile, content-dependent
 special-casing; `sectionBottomGap` can be pushed more negative if this
 residual difference still bothers you on real paper.
+
+## Round 3.5 (same day) — preview cleanup + PAYABLE/TOTAL centering + badge centering
+
+Four separate asks in one message, all fixed, all verified against
+"Exact print" rasters (never "Live preview" — see Round 3.4 for why):
+
+**A. Preview modal now shows only "Exact print" (ESC/POS simulation)**
+
+Removed the Live/Exact toggle in `PreviewModal.tsx` entirely. This
+wasn't just simplification — Round 3.4 already proved Live preview
+doesn't reliably match real print output, so offering it as an equal
+option was actively misleading. `view` is now a plain derived constant
+(`canSimulate ? "exact" : "live"`), and "Live preview" only ever shows
+as a fallback when there's genuinely nothing to simulate (no printer
+selected, or a pixel-mode printer that goes through the OS driver
+instead of raw ESC/POS). When the simulation is available, a
+non-interactive "Exact print (ESC/POS)" badge replaces the old toggle
+buttons.
+
+**B. "PAYABLE" (Order Receipt / bill mode) now gets its Arabic line**
+
+`receipt-template.ts` was hardcoding `totalAr = ""` whenever the
+receipt was in bill mode, so "PAYABLE" printed with no Arabic
+translation under it while "TOTAL" (checkout mode) always got one.
+Fixed by reusing `config.bill.labels.amountDue.ar` — an Arabic string
+that already existed in the config but was sitting unused.
+
+**C. TOTAL/PAYABLE price now vertically centers against the label**
+
+The `.grand` box (TOTAL/PAYABLE + Arabic on the left, the price on the
+right) used `align-items: center` to vertically center the price
+against the two-line label stack. Confirmed on the raster that flex
+`align-items: center` is **not reliably honored by html2canvas** — the
+price rendered pinned to the bottom instead. Tried `display: table` /
+`table-cell` / `vertical-align: middle` as a "safer" alternative —
+that caused an actual regression, the price visually overlapped the
+Arabic label on the raster (html2canvas's table auto-layout column
+sizing doesn't match a real browser either). Settled on: keep flex for
+horizontal `justify-content: space-between` only (that part already
+worked), and vertically position the price with a manually-calibrated
+plain `margin-top: 1.7mm` on `.grand-value` instead — pure block-flow
+margin, no cross-axis alignment algorithm involved. Verified centered
+on both the Order Receipt (PAYABLE) and Checkout Receipt (TOTAL)
+rasters.
+
+**D. KOT / CANCELLED badge text now vertically centers in its box**
+
+`.tk-badge` used symmetric padding (`1.2mm 3mm`). On the raster the
+text sat hard against the bottom of the badge with a big empty gap
+above — the same html2canvas "text sits low in its own line" quirk
+from Round 3.4, just more visible here because the badge is short and
+single-line. Padding-top can't go negative, so this took two passes:
+first dropped padding-top to `0mm` and roughly doubled padding-bottom,
+which helped but wasn't yet centered (measured 20px empty above vs 7px
+below on the raster, out of a 47px box). Since the ~20px gap at
+padding-top:0 is essentially the floor of html2canvas's built-in
+offset — it can't be reduced further from the top side — the fix was
+to keep growing padding-bottom until the box is tall enough that the
+*same* 20px offset now available on the bottom side too, which means
+growing the box until space-below also reaches 20px. Landed on
+`padding: 0mm 3mm 4mm`. Verified on the raster for **both** badges
+(they share the same CSS class): KOT measured 20px above / 20px below,
+CANCELLED measured 20px above / 20px below — both centered, box is a
+bit taller than before but reads cleanly.
+
+Files touched: `PreviewModal.tsx`, `receipt-template.ts` (`.grand`
+family + `totalAr`), `ticket-template.ts` (`.tk-badge`). No config
+changes this round — everything was CSS/logic fixes inside the
+templates and the preview component.

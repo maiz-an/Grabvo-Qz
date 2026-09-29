@@ -39,13 +39,25 @@ export function PreviewModal({
     printer.mode === "raw" &&
     guessRawCapable(printerName || "");
 
-  const [view, setView] = useState<"live" | "exact">("live");
+  /*
+   * ← CHANGED: no more Live/Exact toggle. The preview always shows the
+   * ESC/POS simulation when it's available (canSimulate) — "Live
+   * preview" is only ever a fallback for when we genuinely can't
+   * simulate yet (no printer selected, or a non-raw/pixel-mode
+   * printer, where there's no raster+threshold pipeline to simulate in
+   * the first place). This isn't just a UI simplification: it turned
+   * out "Live preview" spacing doesn't reliably match what actually
+   * prints (html2canvas positions text slightly differently than a
+   * real browser does), so showing it side-by-side as an equal option
+   * was actively misleading — better to only show the one view that's
+   * always true to the real output.
+   */
+  const view: "live" | "exact" = canSimulate ? "exact" : "live";
   const [simSrc, setSimSrc] = useState<string | null>(null);
   const [simLoading, setSimLoading] = useState(false);
   const [simError, setSimError] = useState(false);
 
   useEffect(() => {
-    setView("live");
     setSimSrc(null);
     setSimError(false);
   }, [kind, html]);
@@ -286,38 +298,17 @@ export function PreviewModal({
         </div>
 
         {/* ==========================================================
-            LIVE / EXACT PRINT TOGGLE
-            "Live" is the HTML preview (anti-aliased, screen-accurate).
-            "Exact print" runs the receipt through the same raster +
-            black/white threshold the printer applies, so what you see
-            here is the actual dot pattern that hits the paper.
+            "Exact print" badge — no toggle anymore, just a label
+            confirming what's shown is the real raster + threshold
+            simulation, not a live-HTML approximation. Only shown when
+            we actually have one (canSimulate); otherwise the fallback
+            live iframe below renders with no badge at all.
             ========================================================== */}
         {canSimulate && (
-          <div className="flex flex-none justify-center gap-1 border-b border-slate-100 bg-white px-6 py-2.5">
-            <button
-              type="button"
-              onClick={() => setView("live")}
-              className={
-                "rounded-lg px-3 py-1 text-[11px] font-bold transition-colors duration-200 " +
-                (view === "live"
-                  ? "bg-violet-600 text-white"
-                  : "text-slate-500 hover:bg-slate-100")
-              }
-            >
-              Live preview
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("exact")}
-              className={
-                "rounded-lg px-3 py-1 text-[11px] font-bold transition-colors duration-200 " +
-                (view === "exact"
-                  ? "bg-violet-600 text-white"
-                  : "text-slate-500 hover:bg-slate-100")
-              }
-            >
+          <div className="flex flex-none justify-center border-b border-slate-100 bg-white px-6 py-2.5">
+            <span className="rounded-lg bg-violet-600 px-3 py-1 text-[11px] font-bold text-white">
               Exact print (ESC/POS)
-            </button>
+            </span>
           </div>
         )}
 
