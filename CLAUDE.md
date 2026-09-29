@@ -579,3 +579,77 @@ victim to any timing or sub-pixel rounding edge case in the raster):
 Files touched: `ticket-template.ts` (`.tk-item-void` block),
 `receipt-template.ts` (`.section-label`), `qz.ts`
 (`rasterizeHtmlToPngBase64`). No config changes.
+
+## New: optional Print Agent connection mode (2026-09-29)
+
+Added a second, opt-in transport for print jobs, for the mobile case
+(a phone has no local QZ Tray to connect to). **Direct QZ Tray printing
+is completely unchanged** — same code paths, same behavior, default
+mode. This section only covers what's new.
+
+### What changed and why
+
+- **Integration point**: the two `await qz.print(config, data)` calls
+  inside `printHtml()` in `src/lib/qz.ts` (pixel-mode branch and
+  raw-mode branch). Everything above them — HTML build, image
+  inlining, raw/pixel decision (`guessRawCapable`), rasterization
+  (`rasterizeHtmlToPngBase64`), cut command — is 100% shared and
+  untouched between the two modes.
+- **New `connectionMode`/`agentUrl` params** on `printHtml()` (default
+  `"direct"`, so any existing caller that doesn't pass them behaves
+  exactly as before). In `"agent"` mode, instead of building a
+  `qz.configs.create(...)` instance and calling `qz.print()` locally,
+  the same `configOptions` object (what would've been passed to
+  `qz.configs.create`) plus the same `data` array are POSTed to
+  `${agentUrl}/print`. A browser-built `Config` instance can't survive
+  JSON over HTTP, so the options it was built from travel instead —
+  the agent reconstructs the identical `qz.configs.create(printerName,
+  configOptions)` call on its own `qz-tray` client. Same inputs, same
+  `qz.print()` call, different machine.
+- **`src/hooks/useQz.ts`**: `connect()`/`refreshPrinters()`/`print()`
+  each gained an `"agent"` branch alongside the original, unmodified
+  `"direct"` branch. In agent mode there's no local QZ Tray websocket
+  at all — `connect()` checks `GET {agentUrl}/status`,
+  `refreshPrinters()` calls `GET {agentUrl}/printers`, and `print()`
+  skips `connectQz()` entirely (the agent owns that connection).
+- **`src/lib/storage.ts`**: new, additive `readConnectionMode` /
+  `writeConnectionMode` / `readAgentUrl` / `writeAgentUrl` — same
+  `localStorage`-per-browser pattern as the existing
+  `readPrinter`/`writePrinter`, new keys (`qz.connection.mode`,
+  `qz.connection.agentUrl`), nothing existing touched.
+- **New `src/components/ConnectionModePanel.tsx`**: smallest possible
+  UI addition, in the Printers tab above the existing
+  Reconnect/Refresh buttons. A segmented Direct/Agent switch (same
+  pattern as `SetupPanel.tsx`'s OS switcher) and, only in Agent mode,
+  one text field for the agent's URL. No new visual system — reuses
+  `Card`, the same shadow override every other Printers-tab card
+  already uses, and the app's existing Tailwind classes.
+- **`src/App.tsx`**: owns `connectionMode`/`agentUrl` state (read from
+  storage on mount), passes them into `useQz(...)` and into
+  `ConnectionModePanel`. `PrintCards`/`handlePrintReceipt` etc. are
+  unchanged — they still just call `print({ printerName, html,
+  printer, label })`; the hook decides the transport.
+
+### The agent itself
+
+Lives in a **separate repo/project**, `GrabvoPrintPing`
+(`github.com/maiz-an/Grabvo-P2`), not in this repo. It's a thin
+transport bridge only — no receipt/ticket templates, no formatting, no
+business logic. It uses the official `qz-tray` npm package in Node
+(per `qz.io/docs/api-overrides`: `setWebSocketType(ws)`,
+`setPromiseType`, `setSha256Type`) and calls back to **this app's own**
+`/digital-certificate.txt` and `/sign-message` endpoints for QZ's
+cert/signing handshake — same private key, same server, never copied
+anywhere else. See that repo's own `CLAUDE.md`/`README.md` for its
+internals.
+
+### Not changed
+
+- `server.js` / `server/index.ts` (`/digital-certificate.txt`,
+  `/sign-message`, `/logo-base64`) — untouched. The agent is just a new
+  *caller* of the same two signing endpoints, same as the browser
+  always was.
+- Every receipt/ticket layout, `receipt-config.ts`, the raw/pixel
+  decision, rasterization, cut commands — identical in both connection
+  modes, since the web app remains the only thing that builds print
+  content in either mode.

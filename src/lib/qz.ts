@@ -1,5 +1,7 @@
 import type { QzGlobal } from "@/types/qz";
 import type { PrinterConfig } from "@/config/types";
+import type { ConnectionMode } from "@/lib/storage";
+import { normalizeAgentUrl } from "@/lib/storage";
 import html2canvas from "html2canvas";
 
 declare global {
@@ -569,18 +571,98 @@ export function warnIfWidthMismatch(
 }
 
 /* =================================================================
+ * Print Agent transport (GrabvoPrintPing).
+ *
+ * NEW, additive — the existing Direct QZ Tray path (qz.print(config,
+ * data), a few lines below) is completely untouched.
+ *
+ * A browser-built `qz.configs.create(...)` result is a live client-side
+ * object, not something that survives JSON over HTTP. So instead of
+ * shipping that object, this ships the same `configOptions` it was
+ * built from (plus the same `printerName` and `data` array that would
+ * otherwise go straight into `qz.print()`), and GrabvoPrintPing
+ * reconstructs the identical `qz.configs.create(printerName,
+ * configOptions)` call on its own `qz-tray` client before printing.
+ * Same inputs in, same qz.print(config, data) call happens — just on a
+ * different machine.
+ * ================================================================= */
+export interface AgentPrintPayload {
+  printerName: string;
+  configOptions: Record<string, unknown>;
+  data: unknown[];
+}
+
+async function sendPrintJobToPrintAgent(
+  agentUrl: string,
+  payload: AgentPrintPayload
+): Promise<void> {
+  const base = normalizeAgentUrl(agentUrl);
+  if (!base) throw new Error("No Print Agent URL configured");
+
+  let res: Response;
+  try {
+    res = await fetch(`${base}/print`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    throw new Error(
+      `Could not reach the Print Agent at ${base} (${(err as Error)?.message || "network error"})`
+    );
+  }
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `Print Agent rejected the job (HTTP ${res.status})${text ? ": " + text : ""}`
+    );
+  }
+}
+
+export interface AgentStatus {
+  agent?: string;
+  version?: string;
+  status?: string;
+  qzTray?: string;
+}
+
+export async function getAgentStatus(agentUrl: string): Promise<AgentStatus> {
+  const base = normalizeAgentUrl(agentUrl);
+  if (!base) throw new Error("No Print Agent URL configured");
+  const res = await fetch(`${base}/status`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Print Agent status check failed (HTTP ${res.status})`);
+  return (await res.json()) as AgentStatus;
+}
+
+export async function listPrintersViaAgent(agentUrl: string): Promise<string[]> {
+  const base = normalizeAgentUrl(agentUrl);
+  if (!base) throw new Error("No Print Agent URL configured");
+  const res = await fetch(`${base}/printers`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Print Agent printer list failed (HTTP ${res.status})`);
+  const body = await res.json();
+  return Array.isArray(body?.printers) ? body.printers : [];
+}
+
+/* =================================================================
  * Print pipeline
  * ================================================================= */
 export interface PrintOptions {
   printerName: string;
   html: string;
   printer: PrinterConfig;
+  /** Defaults to "direct" — existing behavior when omitted. */
+  connectionMode?: ConnectionMode;
+  /** Only required/used when connectionMode === "agent". */
+  agentUrl?: string;
 }
 
 export async function printHtml({
   printerName,
   html,
   printer,
+  connectionMode = "direct",
+  agentUrl,
 }: PrintOptions): Promise<void> {
   const qz = getQz();
   const inlined = await inlineExternalImages(html);
@@ -602,14 +684,14 @@ export async function printHtml({
   if (effectiveMode === "pixel") {
     const heightMm = await measureReceiptHeightMm(inlined, printer.widthMm);
 
-    const config = qz.configs.create(printerName, {
+    const configOptions = {
       size: { width: printer.widthMm, height: heightMm },
       units: "mm",
       margins: 0,
       density: printer.density,
       colorType: printer.pixel.colorType,
       interpolation: printer.pixel.interpolation,
-    });
+    };
 
     const data: unknown[] = [
       { type: "pixel", format: "html", flavor: "plain", data: inlined },
@@ -624,7 +706,12 @@ export async function printHtml({
       });
     }
 
-    await qz.print(config, data);
+    if (connectionMode === "agent") {
+      await sendPrintJobToPrintAgent(agentUrl || "", { printerName, configOptions, data });
+    } else {
+      const config = qz.configs.create(printerName, configOptions);
+      await qz.print(config, data);
+    }
     return;
   }
 
@@ -634,9 +721,9 @@ export async function printHtml({
     printer.density
   );
 
-  const config = qz.configs.create(printerName, {
+  const configOptions = {
     forceRaw: printer.raw.forceRaw,
-  });
+  };
 
   const data: unknown[] = [
     {
@@ -663,7 +750,12 @@ export async function printHtml({
     });
   }
 
-  await qz.print(config, data);
+  if (connectionMode === "agent") {
+    await sendPrintJobToPrintAgent(agentUrl || "", { printerName, configOptions, data });
+  } else {
+    const config = qz.configs.create(printerName, configOptions);
+    await qz.print(config, data);
+  }
 }
 
 /* =================================================================

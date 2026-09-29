@@ -1,13 +1,16 @@
 import { useCallback, useState } from "react";
 import {
   connectQz,
+  getAgentStatus,
   getQz,
   humanizeQzError,
   listPrinters,
+  listPrintersViaAgent,
   printHtml
 } from "@/lib/qz";
 import { sleep } from "@/lib/utils";
 import type { PrinterConfig } from "@/config/types";
+import type { ConnectionMode } from "@/lib/storage";
 import type { ToastType } from "./useToast";
 
 export type QzStatus = "idle" | "connecting" | "connected" | "error";
@@ -33,7 +36,17 @@ export interface UseQzResult {
   }) => Promise<void>;
 }
 
-export function useQz(showToast: ShowToast): UseQzResult {
+/**
+ * `connectionMode`/`agentUrl` are new, additive params. When
+ * connectionMode === "direct" (the default, existing behavior) this
+ * hook behaves exactly as before — every branch below marked "direct"
+ * is the original, unmodified code path.
+ */
+export function useQz(
+  showToast: ShowToast,
+  connectionMode: ConnectionMode = "direct",
+  agentUrl: string = ""
+): UseQzResult {
   const [status, setStatus] = useState<QzStatus>("idle");
   const [printers, setPrinters] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
@@ -41,6 +54,29 @@ export function useQz(showToast: ShowToast): UseQzResult {
   const connect = useCallback(async () => {
     setStatus("connecting");
     setErrorMessage("");
+
+    if (connectionMode === "agent") {
+      try {
+        const info = await getAgentStatus(agentUrl);
+        setStatus("connected");
+        showToast(
+          "success",
+          "Print Agent reachable",
+          info.qzTray === "connected"
+            ? `${info.agent || "GrabvoPrintPing"} is online and QZ Tray is connected`
+            : `${info.agent || "GrabvoPrintPing"} is online, but QZ Tray isn't connected on that machine yet`
+        );
+        await refreshPrinters();
+      } catch (err) {
+        setStatus("error");
+        const msg = (err as Error)?.message || "Could not reach the Print Agent";
+        setErrorMessage(msg);
+        showToast("warning", "Print Agent not reachable", msg, 10000);
+      }
+      return;
+    }
+
+    /* ---------- direct mode (unchanged) ---------- */
     try {
       // Was QZ already connected before we call connectQz()? Used to give
       // the success toast a more informative body — "already running"
@@ -73,9 +109,28 @@ export function useQz(showToast: ShowToast): UseQzResult {
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showToast]);
+  }, [showToast, connectionMode, agentUrl]);
 
   const refreshPrinters = useCallback(async () => {
+    if (connectionMode === "agent") {
+      try {
+        const list = await listPrintersViaAgent(agentUrl);
+        console.log("Available printers (via Print Agent):", list);
+        await sleep(350);
+        setPrinters(list);
+        if (list.length === 0) {
+          showToast("warning", "No printers found on the Print Agent");
+        }
+      } catch (err) {
+        const msg = (err as Error)?.message || "Failed to get printers from the Print Agent";
+        setErrorMessage(msg);
+        setPrinters([]);
+        showToast("error", "Failed to get printers", msg, 10000);
+      }
+      return;
+    }
+
+    /* ---------- direct mode (unchanged) ---------- */
     try {
       await connectQz();
       const list = await listPrinters();
@@ -101,7 +156,7 @@ export function useQz(showToast: ShowToast): UseQzResult {
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showToast]);
+  }, [showToast, connectionMode, agentUrl]);
 
   const print = useCallback(
     async ({
@@ -124,14 +179,36 @@ export function useQz(showToast: ShowToast): UseQzResult {
         return;
       }
 
+      if (connectionMode === "agent" && !agentUrl) {
+        showToast(
+          "warning",
+          "No Print Agent URL configured",
+          "Set one in the PRINTERS panel above, or switch back to Direct QZ Tray."
+        );
+        return;
+      }
+
       showToast("info", `rendering ${label}…`, printerName);
 
       try {
-        await connectQz();
-        await printHtml({ printerName, html, printer });
-        showToast("success", `${label} sent`, printerName);
+        // Direct mode needs a live QZ Tray websocket in this browser;
+        // agent mode doesn't — GrabvoPrintPing owns that connection.
+        if (connectionMode !== "agent") {
+          await connectQz();
+        }
+        await printHtml({ printerName, html, printer, connectionMode, agentUrl });
+        showToast(
+          "success",
+          `${label} sent`,
+          connectionMode === "agent" ? `${printerName} (via Print Agent)` : printerName
+        );
       } catch (err) {
         console.error(label + " error:", err);
+        if (connectionMode === "agent") {
+          const msg = (err as Error)?.message || "Print Agent print failed";
+          showToast("error", `${label} print failed`, msg, 10000);
+          return;
+        }
         const info = humanizeQzError(err);
         showToast(
           info.code === "QZ_NOT_RUNNING" ? "warning" : "error",
@@ -141,7 +218,7 @@ export function useQz(showToast: ShowToast): UseQzResult {
         );
       }
     },
-    [showToast]
+    [showToast, connectionMode, agentUrl]
   );
 
   return { status, printers, errorMessage, connect, refreshPrinters, print };

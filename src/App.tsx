@@ -4,6 +4,7 @@ import { Background } from "@/components/Background";
 import { Header } from "@/components/Header";
 import { ActionButtons } from "@/components/ActionButtons";
 import { PrinterPanel } from "@/components/PrinterPanel";
+import { ConnectionModePanel } from "@/components/ConnectionModePanel";
 import { PrintCards } from "@/components/PrintCards";
 import { PreviewModal, type PreviewKind } from "@/components/PreviewModal";
 import { SetupPanel } from "@/components/SetupPanel";
@@ -18,7 +19,16 @@ import { withPreviewCentering } from "@/lib/qz";
 
 import { useToast } from "@/hooks/useToast";
 import { useQz } from "@/hooks/useQz";
-import { readPrinter, writePrinter, type PrinterKind } from "@/lib/storage";
+import {
+  readPrinter,
+  writePrinter,
+  type PrinterKind,
+  readConnectionMode,
+  writeConnectionMode,
+  readAgentUrl,
+  writeAgentUrl,
+  type ConnectionMode,
+} from "@/lib/storage";
 
 type TabId = "print" | "printers" | "setup";
 
@@ -32,8 +42,15 @@ const SUPPORT_EMAIL = "support@grabvo.app";
 
 export default function App() {
   const { toasts, showToast } = useToast();
+
+  /* ---------- connection mode (Direct QZ Tray vs Print Agent) ---------- */
+  const [connectionMode, setConnectionMode] = useState<ConnectionMode>(() =>
+    readConnectionMode()
+  );
+  const [agentUrl, setAgentUrl] = useState<string>(() => readAgentUrl());
+
   const { status, printers, errorMessage, connect, refreshPrinters, print } =
-    useQz(showToast);
+    useQz(showToast, connectionMode, agentUrl);
 
   /* ---------- splash (first paint only) ---------- */
   const [splashDone, setSplashDone] = useState(false);
@@ -74,6 +91,16 @@ export default function App() {
       setRefreshing(false);
     }
   }, [refreshPrinters]);
+
+  const handleConnectionModeChange = useCallback((mode: ConnectionMode) => {
+    writeConnectionMode(mode);
+    setConnectionMode(mode);
+  }, []);
+
+  const handleAgentUrlChange = useCallback((url: string) => {
+    writeAgentUrl(url);
+    setAgentUrl(url);
+  }, []);
 
   const handlePrinterSelect = useCallback(
     (kind: PrinterKind, value: string) => {
@@ -283,6 +310,12 @@ export default function App() {
             key="printers"
             className="animate-[fadeIn_220ms_ease-out_forwards] flex flex-col gap-3"
           >
+            <ConnectionModePanel
+              mode={connectionMode}
+              agentUrl={agentUrl}
+              onModeChange={handleConnectionModeChange}
+              onAgentUrlChange={handleAgentUrlChange}
+            />
             <Card
               padding="none"
               // Same light-shadow override used by PrintCards / PrinterPanel /
