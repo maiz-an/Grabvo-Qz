@@ -326,25 +326,42 @@ function WindowsSetup() {
 }
 
 /* -------------------------------------------------------------------------
-   macOS - coming soon
+   Shared QZ Tray install block for macOS + Linux - both platforms run the
+   same Qz-Grabvo.sh, which auto-detects which of the two it's on. Mirrors
+   WindowsSetup's structure (description, primary action, numbered "what
+   it does" list, footnote) so the three OS tabs read as one consistent
+   flow, not three different designs.
    ------------------------------------------------------------------------- */
-function MacSetup() {
+function UnixQzTraySetup() {
   return (
     <div className="space-y-4">
-      <div className="flex flex-col items-center gap-4 rounded-md border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
-        <span className="flex h-12 w-12 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-400">
-          <i className="fa-brands fa-apple text-[22px]" aria-hidden="true" />
-        </span>
-        <div>
-          <p className="text-[14px] font-semibold text-slate-900">
-            macOS setup - coming soon
-          </p>
-          <p className="mx-auto mt-1 max-w-[40ch] text-[12.5px] leading-relaxed text-slate-500">
-            The one-click installer for macOS is in development. We&apos;ll
-            update this page the moment it&apos;s ready - no action needed on
-            your end.
-          </p>
+      <p className="text-[12.5px] leading-relaxed text-slate-500">
+        Run the one-line installer in Terminal. It downloads QZ Tray,
+        installs it (you&apos;ll be asked for your password), and trusts
+        the Grabvo certificate so printing runs silently with no prompts.
+      </p>
+
+      <CopyCommand command="curl -fsSL https://qz.grabvo.app/Qz-Grabvo.sh | bash" />
+
+      <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+        <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-900">
+          What it does
         </div>
+        <ol className="space-y-3">
+          <Step n={1}>
+            Downloads the latest QZ Tray release and installs it.
+          </Step>
+          <Step n={2}>
+            Downloads the Grabvo certificate and registers it with QZ
+            Tray, so no trust prompt shows up later.
+          </Step>
+          <Step n={3}>
+            Sets QZ Tray to start automatically on login.
+          </Step>
+          <Step n={4}>
+            Starts QZ Tray immediately — nothing else to do.
+          </Step>
+        </ol>
       </div>
 
       <div className="flex items-start gap-2 rounded-md border border-slate-200 bg-white p-3.5 text-[11.5px] leading-relaxed text-slate-400">
@@ -353,19 +370,38 @@ function MacSetup() {
           aria-hidden="true"
         />
         <span>
-          In the meantime, printing still works on macOS with QZ Tray - you
-          just need to add the certificate manually via{" "}
-          <b className="text-slate-600">QZ Tray → Advanced → Site Manager</b>.
-          Support is available at{" "}
+          Prefer to read it first?{" "}
           <a
-            href="mailto:support@grabvo.app"
+            href="./Qz-Grabvo.sh"
+            download="Qz-Grabvo.sh"
             className="font-semibold text-violet-600 underline decoration-violet-200 underline-offset-2 hover:decoration-violet-500"
           >
-            support@grabvo.app
-          </a>
+            Download Qz-Grabvo.sh
+          </a>{" "}
+          and run <code className="rounded bg-slate-50 px-1.5 py-0.5 text-slate-600 ring-1 ring-slate-200">bash Qz-Grabvo.sh</code>{" "}
+          — it downloads the official QZ Tray installer from GitHub and
+          the Grabvo certificate from{" "}
+          <code className="rounded bg-slate-50 px-1.5 py-0.5 text-slate-600 ring-1 ring-slate-200">
+            qz.grabvo.app
+          </code>
+          . To remove QZ Tray later, run{" "}
+          <code className="rounded bg-slate-50 px-1.5 py-0.5 text-slate-600 ring-1 ring-slate-200">
+            curl -fsSL https://qz.grabvo.app/Qz-Grabvo-Uninstall.sh | bash
+          </code>
           .
         </span>
       </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------
+   macOS
+   ------------------------------------------------------------------------- */
+function MacSetup() {
+  return (
+    <div className="space-y-4">
+      <UnixQzTraySetup />
 
       <PrintAgentSection>
         <CopyCommand command="curl -fsSL https://qz.grabvo.app/install-grabvoprintping.sh | bash" />
@@ -380,42 +416,14 @@ function MacSetup() {
 }
 
 /* -------------------------------------------------------------------------
-   Fallback for Linux / unrecognized platforms
+   Linux / other platforms — same installer as macOS (it auto-detects OS);
+   this tab exists for anything the browser doesn't report as Windows or
+   macOS, which in practice means Linux.
    ------------------------------------------------------------------------- */
 function OtherSetup() {
   return (
     <div className="space-y-4">
-      <div className="flex flex-col items-center gap-4 rounded-md border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
-        <span className="flex h-12 w-12 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-400">
-          <i className="fa-solid fa-laptop text-[20px]" aria-hidden="true" />
-        </span>
-        <div>
-          <p className="text-[14px] font-semibold text-slate-900">
-            Automated setup not available for this OS
-          </p>
-          <p className="mx-auto mt-1 max-w-[40ch] text-[12.5px] leading-relaxed text-slate-500">
-            The one-click installer currently supports Windows only. macOS
-            support is coming soon.
-          </p>
-        </div>
-      </div>
-
-      <div className="flex items-start gap-2 rounded-md border border-slate-200 bg-white p-3.5 text-[11.5px] leading-relaxed text-slate-400">
-        <i
-          className="fa-solid fa-circle-info mt-0.5 text-slate-400"
-          aria-hidden="true"
-        />
-        <span>
-          Need help setting up QZ Tray on this system? Reach us at{" "}
-          <a
-            href="mailto:support@grabvo.app"
-            className="font-semibold text-violet-600 underline decoration-violet-200 underline-offset-2 hover:decoration-violet-500"
-          >
-            support@grabvo.app
-          </a>
-          .
-        </span>
-      </div>
+      <UnixQzTraySetup />
 
       <PrintAgentSection>
         <CopyCommand command="curl -fsSL https://qz.grabvo.app/install-grabvoprintping.sh | bash" />

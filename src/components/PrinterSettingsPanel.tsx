@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import type { QzStatus } from "@/hooks/useQz";
 import type { PrinterKind, ConnectionMode } from "@/lib/storage";
 import { Button } from "./ui";
-import Card from "./Card";
 
 const MODE_LABELS: Record<ConnectionMode, string> = {
   direct: "Direct QZ Tray",
@@ -27,11 +27,10 @@ interface Props {
 }
 
 /**
- * One settings-style panel for everything printer-related, replacing
- * three separately-stacked cards (connection mode / actions / printer
- * dropdowns). Rows follow the label-left, control-right pattern common
- * to settings pages, so this reads as one coherent config screen
- * instead of a stack of unrelated blocks.
+ * Printer configuration as a grid of motion cards — Connection, Status,
+ * Receipt printer, Ticket printer — matching PrintCards' card language
+ * (same entrance stagger, same spring hover lift) instead of the earlier
+ * flat settings-row panel.
  */
 export function PrinterSettingsPanel({
   status,
@@ -70,9 +69,8 @@ export function PrinterSettingsPanel({
   }
 
   return (
-    <Card padding="none" className="divide-y divide-slate-100 !overflow-visible">
-      {/* ---------- Connection mode ---------- */}
-      <SettingsRow label="Connection" hint="How this device reaches QZ Tray">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <SettingsCard icon="fa-route" label="Connection" hint="How this device reaches QZ Tray" index={0}>
         <div className="flex flex-col gap-3">
           <div
             className="flex w-fit items-center gap-0.5 rounded-md border border-slate-200 p-0.5"
@@ -116,7 +114,7 @@ export function PrinterSettingsPanel({
                 value={agentUrl}
                 onChange={(e) => onAgentUrlChange(e.target.value)}
                 className="
-                  w-full max-w-sm rounded-md border border-slate-200 bg-white px-3.5 py-2.5
+                  w-full rounded-md border border-slate-200 bg-white px-3.5 py-2.5
                   text-[13px] font-medium text-slate-900 placeholder:text-slate-400
                   focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-400
                 "
@@ -127,10 +125,9 @@ export function PrinterSettingsPanel({
             </div>
           )}
         </div>
-      </SettingsRow>
+      </SettingsCard>
 
-      {/* ---------- Status + actions ---------- */}
-      <SettingsRow label="Status">
+      <SettingsCard icon="fa-signal" label="Status" index={1}>
         <div className="flex flex-col gap-3">
           <p
             className={`text-[12.5px] leading-relaxed ${
@@ -150,10 +147,9 @@ export function PrinterSettingsPanel({
             </Button>
           </div>
         </div>
-      </SettingsRow>
+      </SettingsCard>
 
-      {/* ---------- Printer assignment ---------- */}
-      <SettingsRow label="Receipt printer" hint="Order &amp; checkout receipts">
+      <SettingsCard icon="fa-receipt" label="Receipt printer" hint="Order &amp; checkout receipts" index={2} dropdown>
         {hasPrinters ? (
           <SelectRow
             id="sel-receipt"
@@ -164,9 +160,9 @@ export function PrinterSettingsPanel({
         ) : (
           <PlaceholderField loading={isLoading} />
         )}
-      </SettingsRow>
+      </SettingsCard>
 
-      <SettingsRow label="Ticket printer" hint="Kitchen &amp; cancellation tickets">
+      <SettingsCard icon="fa-kitchen-set" label="Ticket printer" hint="Kitchen &amp; cancellation tickets" index={3} dropdown>
         {hasPrinters ? (
           <SelectRow
             id="sel-ticket"
@@ -177,49 +173,79 @@ export function PrinterSettingsPanel({
         ) : (
           <PlaceholderField loading={isLoading} />
         )}
-      </SettingsRow>
+      </SettingsCard>
 
-      <div className="px-5 py-3 text-[11px] text-slate-400">
+      <div className="md:col-span-2 text-center text-[11px] text-slate-400">
         <i className="fa-solid fa-floppy-disk mr-1.5" aria-hidden="true" />
         Printer choices are saved to this browser and remembered on reload.
       </div>
-    </Card>
+    </div>
   );
 }
 
 /* ------------------ helpers ------------------ */
 
-function SettingsRow({
+/**
+ * Card shell shared by all four settings cards — same motion language as
+ * PrintCards: staggered fade/rise on mount, spring lift on hover. The
+ * dropdown cards need `!overflow-visible` so their open option panel can
+ * escape the card's rounded-corner clip.
+ */
+function SettingsCard({
+  icon,
   label,
   hint,
+  index,
+  dropdown,
   children,
 }: {
+  icon: string;
   label: string;
   hint?: string;
+  index: number;
+  dropdown?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 p-5 sm:flex-row sm:gap-6">
-      <div className="flex-none sm:w-40">
-        <div className="text-[13px] font-medium text-slate-700">{label}</div>
-        {hint && (
-          <div
-            className="mt-0.5 text-[11.5px] text-slate-400"
-            dangerouslySetInnerHTML={{ __html: hint }}
-          />
-        )}
-      </div>
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, delay: index * 0.07, ease: [0.16, 1, 0.3, 1] }}
+      className={dropdown ? "relative z-10" : undefined}
+    >
+      <motion.div
+        whileHover={{ y: -4 }}
+        transition={{ type: "spring", stiffness: 320, damping: 26 }}
+        className={`flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-[box-shadow,border-color] duration-200 hover:border-violet-200 hover:shadow-[0_12px_28px_-10px_rgba(124,58,237,0.24)] ${
+          dropdown ? "!overflow-visible" : ""
+        }`}
+      >
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-violet-50 text-[13px] text-violet-600">
+            <i className={`fa-solid ${icon}`} aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <div className="text-[13px] font-semibold text-slate-900">{label}</div>
+            {hint && (
+              <div
+                className="text-[11px] text-slate-400"
+                dangerouslySetInnerHTML={{ __html: hint }}
+              />
+            )}
+          </div>
+        </div>
+        {children}
+      </motion.div>
+    </motion.div>
   );
 }
 
 function PlaceholderField({ loading }: { loading: boolean }) {
   if (loading) {
-    return <div className="skeleton-shimmer h-[46px] w-full max-w-sm rounded-md" />;
+    return <div className="skeleton-shimmer h-[46px] w-full rounded-md" />;
   }
   return (
-    <div className="flex h-[46px] w-full max-w-sm items-center rounded-md border border-dashed border-slate-200 px-3.5 text-[12.5px] italic text-slate-400">
+    <div className="flex h-[46px] w-full items-center rounded-md border border-dashed border-slate-200 px-3.5 text-[12.5px] italic text-slate-400">
       Connect to QZ Tray to see printers
     </div>
   );
@@ -306,7 +332,7 @@ function SelectRow({ id, value, options, onChange }: SelectRowProps) {
 
   return (
     <div
-      className={`w-full max-w-sm ${open ? "relative z-30" : ""}`}
+      className={`w-full ${open ? "relative z-30" : ""}`}
       ref={rootRef}
     >
       <div className="relative">

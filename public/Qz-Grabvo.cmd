@@ -37,7 +37,21 @@ if %errorLevel% neq 0 (
 )
 
 :: -------------------------------------------------------------------------
-:: 3. UI init (glyphs, spinner, colors)
+:: 3. Force a TrueType console font
+:: -------------------------------------------------------------------------
+:: A freshly-elevated console (a brand new window - the UAC prompt spawns
+:: one, it isn't the console you were just typing in) can default to the
+:: legacy "Raster Fonts" bitmap font, which has no glyphs for the
+:: box-drawing/braille characters below - they render as "?" even though
+:: chcp 65001 already has the encoding right (copy the same text out of
+:: that window and the real characters are there - font, not encoding).
+:: Registry tweaks only affect *new* console windows, not the one already
+:: open, so this calls the Win32 console API directly to fix the font of
+:: THIS window live. Best-effort: printing still works either way.
+call :ensure_truetype_font
+
+:: -------------------------------------------------------------------------
+:: 4. UI init (glyphs, spinner, colors)
 :: -------------------------------------------------------------------------
 call :ui_init
 
@@ -52,7 +66,7 @@ set "WH=!ESC![38;5;231m"
 set "DGR=!ESC![38;5;240m"
 
 :: -------------------------------------------------------------------------
-:: 4. Config
+:: 5. Config
 :: -------------------------------------------------------------------------
 set "CERT_URL=https://qz.grabvo.app/Grabvo.crt"
 set "CERT_FILENAME=Grabvo.crt"
@@ -504,6 +518,56 @@ exit /b 1
 :: =========================================================================
 ::   UI (pure ASCII on disk - real glyphs decoded from hex at runtime)
 :: =========================================================================
+
+:: Forces the CURRENT console window to a TrueType font (Consolas) via
+:: the Win32 console API, so box-drawing/braille glyphs actually have a
+:: glyph to render (see the comment above the call site). Builds a small
+:: C# P/Invoke snippet into a temp .ps1 - CreateFile("CONOUT$") is used
+:: instead of GetStdHandle so this still gets a real console handle even
+:: if stdout itself is redirected. Silent and best-effort: any failure
+:: here is swallowed, since the only downside is the ASCII-glyph look.
+:ensure_truetype_font
+set "FONTFIX_PS1=%TEMP%\grabvo_fontfix_%RANDOM%.ps1"
+> "%FONTFIX_PS1%" (
+    echo $sig = @'
+    echo using System;
+    echo using System.Runtime.InteropServices;
+    echo public static class GrabvoFontFix {
+    echo     [StructLayout^(LayoutKind.Sequential^)]
+    echo     public struct COORD { public short X; public short Y; }
+    echo     [StructLayout^(LayoutKind.Sequential, CharSet = CharSet.Unicode^)]
+    echo     public struct CONSOLE_FONT_INFO_EX {
+    echo         public uint cbSize;
+    echo         public uint nFont;
+    echo         public COORD dwFontSize;
+    echo         public int FontFamily;
+    echo         public int FontWeight;
+    echo         [MarshalAs^(UnmanagedType.ByValTStr, SizeConst = 32^)]
+    echo         public string FontName;
+    echo     }
+    echo     [DllImport^("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode^)]
+    echo     public static extern IntPtr CreateFile^(string fileName, uint desiredAccess, uint shareMode, IntPtr securityAttributes, uint creationDisposition, uint flagsAndAttributes, IntPtr templateFile^);
+    echo     [DllImport^("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode^)]
+    echo     public static extern bool SetCurrentConsoleFontEx^(IntPtr hConsoleOutput, bool bMaximumWindow, ref CONSOLE_FONT_INFO_EX lpConsoleCurrentFontEx^);
+    echo     public static void Apply^(^) {
+    echo         IntPtr h = CreateFile^("CONOUT$", 0xC0000000, 0x3, IntPtr.Zero, 3, 0, IntPtr.Zero^);
+    echo         if ^(h == IntPtr.Zero ^|^| h.ToInt64^(^) == -1^) return;
+    echo         CONSOLE_FONT_INFO_EX info = new CONSOLE_FONT_INFO_EX^(^);
+    echo         info.cbSize = ^(uint^)Marshal.SizeOf^(info^);
+    echo         info.FontFamily = 4;
+    echo         info.FontName = "Consolas";
+    echo         info.dwFontSize.X = 0;
+    echo         info.dwFontSize.Y = 16;
+    echo         SetCurrentConsoleFontEx^(h, false, ref info^);
+    echo     }
+    echo }
+    echo '@
+    echo Add-Type -TypeDefinition $sig -Language CSharp
+    echo [GrabvoFontFix]::Apply^(^)
+)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%FONTFIX_PS1%" >nul 2>&1
+del "%FONTFIX_PS1%" 2>nul
+exit /b 0
 
 :ui_init
 set "ESC="
