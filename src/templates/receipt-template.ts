@@ -2,6 +2,7 @@ import { receiptConfig } from "@/config/receipt-config";
 import {
   ar,
   esc,
+  INTER_FONT_FACE,
   kv,
   kvHtml,
   moneyHtml,
@@ -263,6 +264,7 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
 <head>
 <meta charset="utf-8">
 <title>${isBill ? "Order Receipt" : "Checkout Receipt"}</title>
+<style>${INTER_FONT_FACE}</style>
 <style>
   @page { margin: 0; }
   *, *::before, *::after { box-sizing: border-box; }
@@ -282,7 +284,7 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
       ${S.paddingLeftMm || "0mm"};
 
     font-family: ${S.baseFont ||
-      "'Segoe UI', 'Helvetica Neue', 'Inter', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif"};
+      "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"};
 
     font-size:   ${S.baseSize || "9.5pt"};
     line-height: ${S.lineHeight || "1.4"};

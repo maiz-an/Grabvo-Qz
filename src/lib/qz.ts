@@ -352,6 +352,42 @@ function buildCutCommand(
 }
 
 /* =================================================================
+ * Printer-type detection.
+ *
+ * "raw" mode sends bytes straight in the printer's own command
+ * language (ESC/POS here) and bypasses the OS driver entirely — it's
+ * what makes thermal receipt printers print pixel-identical output
+ * everywhere. But it ONLY works on a printer that actually speaks
+ * that language. Point it at a laser/inkjet, a network MFP, or a
+ * virtual printer (e.g. "Microsoft Print to PDF") and QZ can't turn
+ * the image into ESC/POS bytes for it — that's the
+ * "ImageConverter missing for LanguageType: UNKNOWN" crash.
+ *
+ * There's no single wire format every printer class understands
+ * without a driver — a laser printer needs its driver (or PostScript/
+ * PCL, which amounts to the same thing) no matter what. So instead of
+ * forcing raw ESC/POS at every printer in the list, this guesses the
+ * printer's type from its name and only uses raw mode for printers
+ * that look like thermal/receipt/label hardware. Everything else
+ * automatically falls back to "pixel" mode, which prints through the
+ * printer's driver — so it degrades safely instead of throwing.
+ *
+ * This is a heuristic, not a guarantee — if a printer's driver name
+ * doesn't match either list it's left as configured. For a printer
+ * you print to often, the reliable fix is still to set `printer.mode`
+ * explicitly once you know what it is.
+ * ================================================================= */
+const RAW_CAPABLE_NAME = /\b(pos|thermal|receipt|kitchen|kot|escpos|esc-pos|tm-|tsp|rp[0-9]|zpl|zebra|epl|tspl|dpl|cpcl|label|barcode|lan\s*80mm|80mm|58mm)\b/i;
+const DRIVER_ONLY_NAME = /\b(pdf|xps|onenote|fax|laserjet|officejet|deskjet|inkjet|pcl|postscript|mfp|bizhub|konica|ricoh|xerox|canon|epson\s*et|copier|scan)\b/i;
+
+export function guessRawCapable(printerName: string): boolean {
+  if (RAW_CAPABLE_NAME.test(printerName)) return true;
+  if (DRIVER_ONLY_NAME.test(printerName)) return false;
+  // Unknown name: trust whatever the config says.
+  return true;
+}
+
+/* =================================================================
  * Print pipeline
  * ================================================================= */
 export interface PrintOptions {
@@ -368,7 +404,19 @@ export async function printHtml({
   const qz = getQz();
   const inlined = await inlineExternalImages(html);
 
-  if (printer.mode === "pixel") {
+  const effectiveMode: "raw" | "pixel" =
+    printer.mode === "raw" && !guessRawCapable(printerName)
+      ? "pixel"
+      : printer.mode;
+
+  if (effectiveMode !== printer.mode) {
+    console.warn(
+      `[qz] "${printerName}" doesn't look like a raw/ESC-POS printer — ` +
+        `printing through its driver (pixel mode) instead of raw ESC/POS.`
+    );
+  }
+
+  if (effectiveMode === "pixel") {
     const heightMm = await measureReceiptHeightMm(inlined, printer.widthMm);
 
     const config = qz.configs.create(printerName, {

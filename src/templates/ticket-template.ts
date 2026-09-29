@@ -1,5 +1,5 @@
 import { receiptConfig } from "@/config/receipt-config";
-import { esc, timeOnly } from "./shared";
+import { esc, INTER_FONT_FACE, timeOnly } from "./shared";
 
 export interface TicketOptions {
   label?: string;
@@ -129,6 +129,7 @@ export function buildTicketHtml(opts: TicketOptions = {}): string {
 <head>
 <meta charset="utf-8">
 <title>${isCancellation ? "Cancellation Receipt" : "Preparation Receipt"}</title>
+<style>${INTER_FONT_FACE}</style>
 <style>
   @page { margin: 0; }
   *, *::before, *::after { box-sizing: border-box; }
@@ -147,7 +148,7 @@ export function buildTicketHtml(opts: TicketOptions = {}): string {
       ${TS.bottomPadding || "5mm"}
       ${TS.paddingLeftMm || "0mm"};
 
-    font-family: ${TS.baseFont || "'Segoe UI', 'Helvetica Neue', Inter, sans-serif"};
+    font-family: ${TS.baseFont || "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif"};
     font-size:   ${TS.baseSize || "11pt"};
     line-height: ${TS.lineHeight || "1.35"};
     color: #000;

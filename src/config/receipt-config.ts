@@ -80,8 +80,17 @@ export const receiptConfig: ReceiptConfig = {
   },
 
   style: {
+    // ← CHANGED: 'Inter' now comes first. It's embedded straight into
+    //   the printed document (see INTER_FONT_FACE in shared.ts), so
+    //   every till renders the exact same glyphs regardless of what's
+    //   installed on that machine. Before, 'Segoe UI' came first and
+    //   silently won on every Windows till (it ships with Windows),
+    //   which is why the same receipt looked bolder / had different
+    //   spacing on different registers — each one was quietly using a
+    //   different font. The rest of the stack is just a safety net for
+    //   the on-screen preview before the embedded font finishes decoding.
     baseFont:
-      "'Segoe UI', 'Helvetica Neue', 'Inter', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif",
+      "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
     baseSize: "9.5pt",
     // ← CHANGED: was "1.4". Tighter, still legible, noticeably shorter
     //   receipts. 1.25 is a good sweet spot for thermal.
@@ -248,8 +257,10 @@ export const receiptConfig: ReceiptConfig = {
       // ← CHANGED: was "5mm".
       bottomPadding: "2mm",
 
+      // ← CHANGED: same reasoning as printer receipt style.baseFont above —
+      //   'Inter' first, embedded, so kitchen tickets match too.
       baseFont:
-        "'Segoe UI', 'Helvetica Neue', 'Inter', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif",
+        "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
       baseSize: "11pt",
       // ← CHANGED: was "1.35".
       lineHeight: "1.25",
