@@ -240,7 +240,12 @@ export function buildTicketHtml(opts: TicketOptions = {}): string {
     align-items: flex-start;
     gap: 3.5mm;
     padding: ${TS.itemPadding || "3mm"} 0;
-    ${TS.itemDivider !== "" ? "border-bottom: " + (TS.itemDivider || "1px dashed #999") + ";" : ""}
+    /* ← CHANGED default divider color: #999 → #555. #999's luma (153)
+       is past the ESC/POS threshold (140), so the default dashed
+       divider was printing as an invisible line — there's no "light
+       gray" once the printer reduces everything to black/white dots;
+       the dash spacing is what reads as subtle, not the color. */
+    ${TS.itemDivider !== "" ? "border-bottom: " + (TS.itemDivider || "1px dashed #555") + ";" : ""}
   }
   .tk-item:last-child { border-bottom: 0; }
 
@@ -274,7 +279,7 @@ export function buildTicketHtml(opts: TicketOptions = {}): string {
     margin-top: 0.6mm;
     font-size: ${TS.itemNameArSize || "10pt"};
     font-weight: 500;
-    color: #777;
+    color: #333;
     line-height: 1.3;
     text-align: left;
   }
@@ -293,7 +298,7 @@ export function buildTicketHtml(opts: TicketOptions = {}): string {
   .tk-empty {
     text-align: center;
     padding: 4mm 0;
-    color: #999;
+    color: #333;
     font-size: 10pt;
   }
 
@@ -318,9 +323,11 @@ export function buildTicketHtml(opts: TicketOptions = {}): string {
     color: #000;
   }
 
+  /* ← CHANGED: 5mm + 3.5mm = 8.5mm of blank paper before the footer —
+     trimmed to still read as a clear break, without wasting paper. */
   .tk-footer {
-    margin-top: 5mm;
-    padding-top: 3.5mm;
+    margin-top: 2.5mm;
+    padding-top: 2mm;
     border-top: 1.5px solid #000;
     text-align: center;
   }
@@ -339,11 +346,13 @@ export function buildTicketHtml(opts: TicketOptions = {}): string {
     color: #000;
   }
   .tk-footer-powered {
-    margin-top: 3mm;
+    margin-top: 2mm;
     font-size:   ${TS.poweredSize || "7pt"};
     font-weight: 800;
     letter-spacing: 0.24em;
-    color: #999;
+    /* ← CHANGED: #999 (luma 153) is past the print threshold (140) —
+       this line was printing essentially blank. */
+    color: #333;
   }
 </style>
 </head>

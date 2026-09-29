@@ -131,3 +131,109 @@ falls in.
   from the code and the attached console log, but worth a real test
   print on the LAN 80MM / GP-D300 thermal printers before rolling out
   further.
+
+## Round 2 (2026-09-29, same day) — real photo of a printed receipt
+
+The user sent a photo of an actual print. Three things showed up that the
+live HTML preview could never have caught, because it's a browser tab
+with anti-aliasing — the printer has neither.
+
+### The core problem: preview ≠ print, structurally
+
+Raw mode doesn't print HTML — QZ reduces the rasterized PNG to pure
+black/white dots first (`printer.raw.quantization`/`threshold`). A
+screen shows every shade of gray; a thermal printhead only "burns" or
+doesn't. The live iframe preview was showing smooth anti-aliased text
+that could never match what the threshold step does to it.
+
+**Fix:** `simulateEscposPrint(html, printer)` in `src/lib/qz.ts` runs the
+SAME `rasterizeHtmlToPngBase64()` the real print uses, then applies the
+same luma threshold client-side (canvas `getImageData`/`putImageData`),
+composited onto white first (so transparent PNG regions read as paper,
+not black). `PreviewModal.tsx` now has a "Live preview" / "Exact print
+(ESC/POS)" toggle — the second tab shows literally the dot pattern that
+will hit the paper. Only shown when `guessRawCapable()` says the printer
+is raw-capable (a pixel-mode driver print doesn't go through this path).
+Wired up via new `printer`/`printerName` props threaded from `App.tsx`.
+
+This is also how the two fixes below were actually found and verified —
+by rendering the simulation with Playwright and reading the output,
+not by guessing.
+
+### Small text was dropping letters on paper ("small letter quality bad")
+
+Two independent causes, both confirmed by screenshotting the simulation:
+
+1. **Secondary text colors were too light for the threshold.** Several
+   places used `#888`/`#999`/`#666`/`#777` for de-emphasis (the normal
+   screen-design move: lighter = quieter). But `printer.raw.threshold`
+   is 140, and `#999`'s luma is 153 — **already past the cutoff at full
+   opacity**, so `.powered`, `.tk-footer-powered`, `.tk-empty`, and the
+   default item divider were printing essentially blank. `#888` (luma
+   136) is right at the edge, so `.item-note` (which was also *italic*
+   — thin diagonal strokes are almost all antialiased edge pixels, worst
+   case for a threshold) came out patchy. Fixed by darkening every
+   instance to `#333`ish and dropping the italic. On a 1-bit printer
+   there's no such thing as "light gray" — de-emphasis has to come from
+   size/weight, never color.
+2. **Weight 500 (and implicit 400) is too thin at 7–7.5pt/203dpi.** Even
+   in solid black, a "t" or "T"'s crossbar at that size is 1 raster
+   pixel wide — anti-aliasing on screen hides this, the printer's hard
+   threshold doesn't. Confirmed literally: "4 items" printed as
+   "4 lems", "Order Time" as "Order  ime", the return-policy line
+   dropped whole letters. Fixed by bumping every small (7–7.5pt) text
+   class from 500/implicit-400 to 600, and giving `.policy` (which had
+   **no** `font-weight` at all, so it was inheriting 400) an explicit
+   one. `smallMetaSize` 7.5pt→8pt and `contactSize` 7pt→7.5pt also
+   bumped — same "floor" the original dev already noted for
+   `smallFooterSize`/`poweredSize`, just hadn't been applied everywhere
+   yet.
+3. **Rasterization now supersamples 2× before downsampling**, inside
+   `rasterizeHtmlToPngBase64()` in `qz.ts`. Rendering straight at
+   203dpi gives QZ's threshold a hard-aliased source — a thin stroke
+   either lands on a dot or it doesn't, no partial coverage to work
+   with. Rendering at 2× and area-averaging back down (canvas
+   `imageSmoothingQuality: "high"`) gives every final pixel a real
+   blended luma, so partial coverage survives the threshold instead of
+   being random. This is the single change with the most visible
+   effect — verified in the same before/after screenshots as #2.
+
+### Receipt felt too tall for 3 items ("waste paper")
+
+- `.footer` was `margin-top: 6mm; padding-top: 4mm` — **10mm of blank
+  paper** before "Thank you" even started, on every single receipt.
+  Trimmed to 3mm/2mm (and the ticket's equivalent `.tk-footer` from
+  5mm/3.5mm to 2.5mm/2mm).
+- `.section-label` (the ORDER/CUSTOMER/ITEMS/REFERENCE headers) had
+  `padding-bottom: 1mm` before its `border-bottom` rule — visually the
+  rule was touching the letters. Rebalanced to 1.7mm padding / 1.3mm
+  margin-bottom — same total height as before, just redistributed, so
+  it reads as a clean heading instead of fixing the "touching" look by
+  adding paper.
+- `.grand`/`.totals` margins left alone — that's the TOTAL box, it's
+  supposed to stand out.
+
+### Paper width — NOT auto-detected, on purpose
+
+The user asked for the print width to auto-fit the printer. Looked into
+it and decided against wiring it in: `printer.widthMm` isn't just the
+raster size, every template's CSS `pageWidth` is hand-set equal to it
+(`types.ts` says so explicitly) — silently rasterizing at a guessed
+width without also changing the HTML's layout width would stretch or
+clip every receipt. Added `warnIfWidthMismatch()` instead (pure
+advisory, `console.warn` only) — if a printer's name says "58mm" or
+"80mm" and `printer.widthMm` doesn't match what that implies, it logs a
+warning so the mismatch is visible instead of silently wrong. Real fix
+is still to set `widthMm` + `style.pageWidth`/`ticket.style.pageWidth`
+per printer by hand in `receipt-config.ts`.
+
+### How this was actually verified (not just reasoned about)
+
+No printer is attached to this environment, but a browser is: built the
+app, served it with `vite preview`, and drove it with Playwright
+(headless Chromium) — clicked into the preview modal, switched to
+"Exact print", screenshotted, and cropped in to read individual words at
+pixel level. That's how the dropped-letter bugs above were actually
+found (not guessed) and how the fixes were confirmed to work, in the
+same session. Worth repeating this loop for any future thermal-print
+legibility change instead of trusting the live HTML preview.

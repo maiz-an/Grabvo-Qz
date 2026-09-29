@@ -234,7 +234,7 @@ function rasterCacheKey(html: string, widthMm: number, density: number): string 
  * attached element in the main window — the exact use case it's built
  * for.
  * ================================================================= */
-async function rasterizeHtmlToPngBase64(
+export async function rasterizeHtmlToPngBase64(
   html: string,
   widthMm: number,
   density: number
@@ -306,14 +306,44 @@ async function rasterizeHtmlToPngBase64(
     }
     await new Promise<void>((r) => requestAnimationFrame(() => r()));
 
-    const canvas = await html2canvas(host, {
-      scale: density / 96,
+    /* ---------------------------------------------------------------
+     * Supersample, then downsample with smoothing, BEFORE the image
+     * goes to QZ's 1-bit threshold.
+     *
+     * Rendering straight at print resolution (density/96) gives QZ a
+     * hard-aliased source: a thin stroke (a "T", a colon, digits at
+     * 7-8pt) either lands squarely on a print dot or it doesn't —
+     * there's no partial coverage to threshold against, so those
+     * strokes randomly vanish depending on exactly where they land.
+     * That's the actual mechanism behind small text looking "broken"
+     * on paper even though it's crisp on screen.
+     *
+     * Rendering at 2× and area-averaging back down gives every final
+     * pixel a real blended luma from a 2×2 region, so a thin stroke
+     * that only partially covers a print dot still darkens it enough
+     * to clear the threshold — the same reason real dot-printer/
+     * halftone pipelines supersample before quantizing.
+     * ------------------------------------------------------------- */
+    const SUPERSAMPLE = 2;
+    const rawCanvas = await html2canvas(host, {
+      scale: (density / 96) * SUPERSAMPLE,
       backgroundColor: "#ffffff",
       useCORS: true,
       logging: false,
     });
 
-    const dataUrl = canvas.toDataURL("image/png");
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(rawCanvas.width / SUPERSAMPLE);
+    canvas.height = Math.round(rawCanvas.height / SUPERSAMPLE);
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(rawCanvas, 0, 0, canvas.width, canvas.height);
+    }
+    const finalCanvas = ctx ? canvas : rawCanvas;
+
+    const dataUrl = finalCanvas.toDataURL("image/png");
     const png = dataUrl.split(",")[1] || "";
 
     if (rasterCache.size >= RASTER_CACHE_MAX) {
@@ -326,6 +356,79 @@ async function rasterizeHtmlToPngBase64(
   } finally {
     host.remove();
   }
+}
+
+/* =================================================================
+ * Print simulation — "what the printer will actually do".
+ *
+ * The live HTML preview (an iframe with real anti-aliased text) and
+ * the raw print job were always visually different, because raw mode
+ * doesn't print HTML — it prints a PNG that QZ Tray reduces to pure
+ * black/white dots first (the `quantization`/`threshold` in
+ * printer.raw). A screen shows every shade of gray; a thermal
+ * printhead only has "burn" or "don't burn". That gap is exactly what
+ * made some text look fine in preview and patchy on paper.
+ *
+ * This reuses the *same* rasterizeHtmlToPngBase64() the real print
+ * uses — same font, same scale, same density — then applies the same
+ * threshold QZ applies, client-side, so the preview shows actual
+ * black/white dots instead of anti-aliased screen text. It's an
+ * approximation of QZ's own converter (the exact dithering algorithm
+ * for "dither" mode isn't public), but for "luma"/"black" — the
+ * quantization this app uses — it matches QZ's documented behavior:
+ * per-pixel luma below the threshold burns, at/above stays white.
+ * ================================================================= */
+export async function simulateEscposPrint(
+  html: string,
+  printer: PrinterConfig
+): Promise<string> {
+  const png = await rasterizeHtmlToPngBase64(
+    html,
+    printer.widthMm,
+    printer.density
+  );
+
+  const img = new Image();
+  const loaded = new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("Could not decode raster for preview"));
+  });
+  img.src = "data:image/png;base64," + png;
+  await loaded;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return img.src;
+
+  ctx.drawImage(img, 0, 0);
+  const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = frame.data;
+  const threshold = printer.raw.threshold;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const a = data[i + 3];
+    // Composite onto white first — a transparent pixel must read as
+    // paper (white), not as black, or logos with transparency invert.
+    const alpha = a / 255;
+    const rr = r * alpha + 255 * (1 - alpha);
+    const gg = g * alpha + 255 * (1 - alpha);
+    const bb = b * alpha + 255 * (1 - alpha);
+    const luma = 0.299 * rr + 0.587 * gg + 0.114 * bb;
+    const burn = luma < threshold;
+    const v = burn ? 0 : 255;
+    data[i] = v;
+    data[i + 1] = v;
+    data[i + 2] = v;
+    data[i + 3] = 255;
+  }
+
+  ctx.putImageData(frame, 0, 0);
+  return canvas.toDataURL("image/png");
 }
 
 /* =================================================================
@@ -388,6 +491,45 @@ export function guessRawCapable(printerName: string): boolean {
 }
 
 /* =================================================================
+ * Paper-width advisory.
+ *
+ * NOT wired into the print path on purpose. `printer.widthMm` isn't
+ * just the raster size — every template's CSS is written with
+ * `pageWidth` hard-equal to it ("pageWidth must equal printer.widthMm"
+ * is called out in types.ts). Silently rasterizing at a different
+ * width than the HTML was laid out for would stretch or clip every
+ * receipt, which is exactly the kind of breakage that isn't worth the
+ * convenience. This only warns so a width mismatch is visible instead
+ * of a mystery — the actual fix is still to set `printer.widthMm`
+ * (and the matching `style.pageWidth` / `ticket.style.pageWidth`) for
+ * that printer in receipt-config.ts.
+ * ================================================================= */
+function guessPaperWidthMm(printerName: string): 58 | 80 | null {
+  if (/\b58\s*mm\b/i.test(printerName)) return 58;
+  if (/\b80\s*mm\b/i.test(printerName)) return 80;
+  return null;
+}
+
+export function warnIfWidthMismatch(
+  printerName: string,
+  configuredWidthMm: number
+): void {
+  const guessed = guessPaperWidthMm(printerName);
+  if (guessed === null) return;
+  // Printable width is paper width minus ~8mm of head margin.
+  const expected = guessed - 8;
+  if (Math.abs(configuredWidthMm - expected) > 4) {
+    console.warn(
+      `[qz] "${printerName}" looks like a ${guessed}mm printer, but ` +
+        `printer.widthMm is set to ${configuredWidthMm}mm (~${expected}mm ` +
+        `expected). Update printer.widthMm and the matching pageWidth in ` +
+        `receipt-config.ts for this printer, or the layout will be ` +
+        `clipped/off-centre.`
+    );
+  }
+}
+
+/* =================================================================
  * Print pipeline
  * ================================================================= */
 export interface PrintOptions {
@@ -403,6 +545,8 @@ export async function printHtml({
 }: PrintOptions): Promise<void> {
   const qz = getQz();
   const inlined = await inlineExternalImages(html);
+
+  warnIfWidthMismatch(printerName, printer.widthMm);
 
   const effectiveMode: "raw" | "pixel" =
     printer.mode === "raw" && !guessRawCapable(printerName)

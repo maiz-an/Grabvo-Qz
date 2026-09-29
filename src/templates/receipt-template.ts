@@ -349,15 +349,29 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
   .biz-contact {
     margin-top: 2.2mm;
     font-size: ${S.contactSize || "7pt"};
-    font-weight: 500;
+    /* ← CHANGED: 500 → 600. Verified against a raster+threshold
+       simulation: weight 500 at 7pt drops thin strokes ("t", "i")
+       on the actual 1-bit print even though it reads fine on screen. */
+    font-weight: 600;
     color: #333;
     line-height: 1.6;
   }
-  .biz-contact .dim { color: #666; }
+  /* ← CHANGED: #666 → #3a3a3a. On screen #666 reads as "muted gray";
+     on a 1-bit thermal threshold (140) it's only ~27% below cutoff, so
+     thin 7pt text in that color partially drops out on paper even
+     though it looks fine in the preview. Every gray below is the same
+     fix for the same reason — de-emphasis on a thermal receipt has to
+     come from size/weight, not a lighter color, because there's no
+     "light gray" once the printer thresholds it to pure black/white. */
+  .biz-contact .dim { color: #3a3a3a; }
 
   .section-label {
-    margin: ${S.sectionTopGap || "4mm"} 0 1.8mm;
-    padding-bottom: 1mm;
+    /* ← CHANGED: padding-bottom 1mm → 1.7mm, margin-bottom 1.8mm →
+       1.3mm. Same total height as before (net ~0), but the rule was
+       sitting almost on top of the letters — this gives the heading
+       room to breathe without adding paper. */
+    margin: ${S.sectionTopGap || "4mm"} 0 1.3mm;
+    padding-bottom: 1.7mm;
     font-size:   ${S.sectionSize || "7pt"};
     font-weight: 900;
     text-transform: uppercase;
@@ -390,7 +404,10 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
   .order-sub {
     margin-top: 0.6mm;
     font-size: ${S.contactSize || "7pt"};
-    font-weight: 500;
+    /* ← CHANGED: 500 → 600, #555 kept (already safely below the print
+       threshold). Confirmed with the raster simulation: "4 items" at
+       500/7pt printed as "4 lems" — the "t" vanished. */
+    font-weight: 600;
     color: #555;
     letter-spacing: 0.02em;
   }
@@ -407,8 +424,15 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
   .kv .k { color: #444; font-weight: 500; }
   .kv .v { font-weight: 800; text-align: right; overflow-wrap: anywhere; color: #000; }
   .kv.small { font-size: ${S.smallMetaSize || "7.5pt"}; margin: 0.7mm 0; }
-  .kv.small .k { color: #555; }
-  .kv.small .v { font-weight: 600; }
+  /* ← CHANGED: 500 → 600, same reasoning as .kv.small .v below — this
+     is the smallest text on the receipt ("Order Time", "Print Time"),
+     where a stray "T" or colon is most likely to partially vanish. */
+  .kv.small .k { color: #555; font-weight: 600; }
+  /* ← CHANGED: 600 → 700. Reference values here are digits/IDs at the
+     smallest size on the receipt — thin strokes (a "T", a colon) are
+     the ones most likely to partially drop out at 1-bit threshold;
+     a touch more weight gives them margin to survive. */
+  .kv.small .v { font-weight: 700; }
 
   .totals-ar {
     margin-top: -0.4mm;
@@ -447,28 +471,36 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
     margin-top: 0.4mm;
     font-size: ${S.itemNameArSize || "8pt"};
     font-weight: ${S.arabicWeightItemName || "500"};
-    color: #666;
+    color: #333;
     line-height: 1.3;
     text-align: left;
   }
   .item-meta {
     margin-top: 0.6mm;
     font-size: ${S.itemMetaSize || "7.5pt"};
-    font-weight: 500;
+    /* ← CHANGED: 500 → 600, same reasoning as .order-sub above. */
+    font-weight: 600;
     color: #555;
   }
   .item-note {
     margin-top: 0.6mm;
     font-size:   ${S.itemNoteSize || "7.5pt"};
-    font-style:  italic;
-    font-weight: 500;
-    color: #888;
+    /* ← CHANGED: italic removed, #888 → #333. This was the worst
+       offender on paper: a slanted stroke at 7.5pt is almost entirely
+       antialiased edge pixels, and #888's luma (136) sits right at the
+       threshold (140) — between them, most of the glyph thresholded
+       to white and the note came out patchy/broken. Upright + dark
+       still reads as "secondary" next to the bold item name above it,
+       it just survives the print. Weight bumped 500 → 600 too — same
+       thin-stroke dropout confirmed at 500 on other 7.5pt lines. */
+    font-weight: 600;
+    color: #333;
     line-height: 1.35;
     text-align: left;
     overflow-wrap: anywhere;
   }
 
-  .empty { text-align: center; padding: 3mm 0; color: #999; font-size: 9pt; }
+  .empty { text-align: center; padding: 3mm 0; color: #333; font-size: 9pt; }
 
   .totals { margin-top: ${S.subtotalTopGap || "3mm"}; }
 
@@ -520,9 +552,13 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
     color: #333;
   }
 
+  /* ← CHANGED: margin-top 6mm + padding-top 4mm = 10mm of blank paper
+     before "Thank you" even starts — the single biggest source of
+     wasted paper on a short receipt. 3mm + 2mm still reads as a clear
+     break after the total, without the dead space. */
   .footer {
-    margin-top: 6mm;
-    padding-top: 4mm;
+    margin-top: 3mm;
+    padding-top: 2mm;
     border-top: 1px solid #000;
     text-align: center;
   }
@@ -542,7 +578,8 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
   .footer-line {
     margin-top: 1.5mm;
     font-size: ${S.footerSize || "7.5pt"};
-    font-weight: 500;
+    /* ← CHANGED: 500 → 600, same reasoning as .order-sub above. */
+    font-weight: 600;
     color: #444;
   }
   .footer-ar {
@@ -553,9 +590,14 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
     line-height: 1.4;
   }
   .policy {
-    margin-top: 3mm;
+    margin-top: 2mm;
     font-size: ${S.smallFooterSize || "6.8pt"};
-    color: #666;
+    /* ← CHANGED: added explicit font-weight: 600. This had none, so it
+       was inheriting the body's normal (400) — the thinnest text on
+       the whole receipt, at the smallest size. The raster simulation
+       showed it losing whole letters ("Items" → "tems"). */
+    font-weight: 600;
+    color: #333;
     line-height: 1.5;
   }
   .policy-ar {
@@ -566,11 +608,13 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
     line-height: 1.5;
   }
   .powered {
-    margin-top: 4mm;
+    margin-top: 2.5mm;
     font-size: ${S.poweredSize || "6.5pt"};
     font-weight: 800;
     letter-spacing: 0.24em;
-    color: #999;
+    /* ← CHANGED: #999's luma (153) is past the threshold (140)
+       already — this line was printing essentially blank. */
+    color: #333;
   }
 </style>
 </head>

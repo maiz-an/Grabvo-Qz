@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 
+import type { PrinterConfig } from "@/config/types";
+import { guessRawCapable, simulateEscposPrint } from "@/lib/qz";
+
 export type PreviewKind = "receipt" | "bill" | "ticket" | "cancellation";
 
 interface PreviewModalProps {
@@ -7,6 +10,9 @@ interface PreviewModalProps {
   html: string;
   widthMm: number;
   onClose: () => void;
+  /** Optional — enables the "Exact print" tab (raw ESC/POS simulation). */
+  printer?: PrinterConfig;
+  printerName?: string;
 }
 
 export function PreviewModal({
@@ -14,9 +20,59 @@ export function PreviewModal({
   html,
   widthMm,
   onClose,
+  printer,
+  printerName,
 }: PreviewModalProps) {
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const [ready, setReady] = useState(false);
+
+  /*
+   * "Exact print" tab — renders the SAME raster + threshold pipeline
+   * the real print job goes through, instead of live anti-aliased
+   * HTML. Only meaningful for raw/ESC-POS mode (pixel mode prints
+   * through the OS driver, which does its own halftoning QZ doesn't
+   * expose) and only for a printer that actually looks raw-capable —
+   * otherwise this would show a simulation that doesn't apply.
+   */
+  const canSimulate =
+    !!printer &&
+    printer.mode === "raw" &&
+    guessRawCapable(printerName || "");
+
+  const [view, setView] = useState<"live" | "exact">("live");
+  const [simSrc, setSimSrc] = useState<string | null>(null);
+  const [simLoading, setSimLoading] = useState(false);
+  const [simError, setSimError] = useState(false);
+
+  useEffect(() => {
+    setView("live");
+    setSimSrc(null);
+    setSimError(false);
+  }, [kind, html]);
+
+  useEffect(() => {
+    if (!kind || view !== "exact" || !printer) return;
+    if (simSrc) return;
+
+    let cancelled = false;
+    setSimLoading(true);
+    setSimError(false);
+
+    simulateEscposPrint(html, printer)
+      .then((src) => {
+        if (!cancelled) setSimSrc(src);
+      })
+      .catch(() => {
+        if (!cancelled) setSimError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setSimLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [kind, view, html, printer, simSrc]);
 
   /*
    * Reset preview whenever the preview type or HTML changes.
@@ -230,6 +286,42 @@ export function PreviewModal({
         </div>
 
         {/* ==========================================================
+            LIVE / EXACT PRINT TOGGLE
+            "Live" is the HTML preview (anti-aliased, screen-accurate).
+            "Exact print" runs the receipt through the same raster +
+            black/white threshold the printer applies, so what you see
+            here is the actual dot pattern that hits the paper.
+            ========================================================== */}
+        {canSimulate && (
+          <div className="flex flex-none justify-center gap-1 border-b border-slate-100 bg-white px-6 py-2.5">
+            <button
+              type="button"
+              onClick={() => setView("live")}
+              className={
+                "rounded-lg px-3 py-1 text-[11px] font-bold transition-colors duration-200 " +
+                (view === "live"
+                  ? "bg-violet-600 text-white"
+                  : "text-slate-500 hover:bg-slate-100")
+              }
+            >
+              Live preview
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("exact")}
+              className={
+                "rounded-lg px-3 py-1 text-[11px] font-bold transition-colors duration-200 " +
+                (view === "exact"
+                  ? "bg-violet-600 text-white"
+                  : "text-slate-500 hover:bg-slate-100")
+              }
+            >
+              Exact print (ESC/POS)
+            </button>
+          </div>
+        )}
+
+        {/* ==========================================================
             MODAL BODY
             ========================================================== */}
         <div
@@ -297,7 +389,7 @@ export function PreviewModal({
           </div>
 
           {/* ========================================================
-              RECEIPT / TICKET IFRAME
+              RECEIPT / TICKET IFRAME — "Live preview"
               ======================================================== */}
           <iframe
             ref={frameRef}
@@ -313,6 +405,7 @@ export function PreviewModal({
               shadow-[0_3px_8px_rgba(15,23,42,.18)]
             "
             style={{
+              display: view === "live" ? "block" : "none",
               width: `${widthMm}mm`,
               minWidth: 260,
               maxWidth: "100%",
@@ -323,6 +416,35 @@ export function PreviewModal({
               transition: "opacity 200ms ease",
             }}
           />
+
+          {/* ========================================================
+              EXACT PRINT — the actual raster QZ sends to the printer,
+              thresholded to black/white exactly like ESC/POS will.
+              ======================================================== */}
+          {view === "exact" && (
+            <div
+              className="mx-auto flex flex-none justify-center rounded-2xl bg-white shadow-[0_3px_8px_rgba(15,23,42,.18)]"
+              style={{ width: `${widthMm}mm`, minWidth: 260, maxWidth: "100%" }}
+            >
+              {simLoading && (
+                <div className="flex h-[300px] items-center justify-center text-[12px] font-semibold text-slate-400">
+                  Rendering exact print…
+                </div>
+              )}
+              {!simLoading && simError && (
+                <div className="flex h-[300px] items-center justify-center px-6 text-center text-[12px] font-semibold text-rose-500">
+                  Couldn't render the print simulation.
+                </div>
+              )}
+              {!simLoading && !simError && simSrc && (
+                <img
+                  src={simSrc}
+                  alt="Exact print simulation"
+                  style={{ width: "100%", display: "block", imageRendering: "pixelated" }}
+                />
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

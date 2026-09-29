@@ -123,7 +123,9 @@ export const receiptConfig: ReceiptConfig = {
     businessNameSize: "20pt",
     businessNameArSize: "15pt",
     taglineSize: "7pt",
-    contactSize: "7pt",
+    // ← CHANGED: was "7pt". Same floor issue as smallMetaSize above —
+    //   confirmed with the raster simulation on the "N items" line.
+    contactSize: "7.5pt",
     logoWidth: "20mm",
     logoHeight: "20mm",
     showLogo: true,
@@ -135,7 +137,13 @@ export const receiptConfig: ReceiptConfig = {
     orderLineSize: "9pt",
 
     metaSize: "8.5pt",
-    smallMetaSize: "7.5pt",
+    // ← CHANGED: was "7.5pt". Verified against an actual raster+
+    //   threshold simulation (not just the on-screen preview): at
+    //   7.5pt a capital "T"'s crossbar (Reference section: "Order
+    //   Time", "Print Time") is thin enough to drop out at 1-bit —
+    //   8pt gives it enough raster pixels to survive reliably, for
+    //   ~0.1mm of extra line height.
+    smallMetaSize: "8pt",
     // ← CHANGED: was "1.1mm".
     rowSpacing: "0.8mm",
 

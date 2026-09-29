@@ -193,6 +193,12 @@ export default function App() {
         html={previewHtml}
         widthMm={receiptConfig.printer.widthMm}
         onClose={closePreview}
+        printer={receiptConfig.printer}
+        printerName={
+          previewKind === "ticket" || previewKind === "cancellation"
+            ? ticketPrinter
+            : receiptPrinter
+        }
       />
 
       {/* ==================================================================
