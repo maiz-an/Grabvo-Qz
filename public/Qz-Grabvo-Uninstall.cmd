@@ -3,12 +3,15 @@ setlocal EnableExtensions EnableDelayedExpansion
 title Grabvo - QZ Tray Uninstaller
 
 :: =========================================================================
-::   Grabvo QZ Tray Uninstaller (v5)
+::   Grabvo QZ Tray Uninstaller (v6)
 ::   ------------------------------------------------------------------------
 ::   Removes QZ Tray, its auto-start entries, and the Grabvo certificate
 ::   trust. Handles the QZ Tray 2.1.1+ silent-uninstall quirk via
 ::   qz-print_silent=1 and a detached launch.
-::   All output is pure ASCII - no chcp needed, no encoding issues.
+::
+::   UI conventions match Qz-Grabvo.cmd - see that file for the source
+::   of the glyph/spinner/bar toolkit (borrowed from LinkCatty,
+::   github.com/maiz-an/LinkCatty). Pure ASCII on disk, CRLF endings.
 :: =========================================================================
 
 :: -------------------------------------------------------------------------
@@ -28,23 +31,19 @@ if %errorLevel% neq 0 (
 )
 
 :: -------------------------------------------------------------------------
-:: 3. Colors
+:: 3. UI init (glyphs, spinner, colors)
 :: -------------------------------------------------------------------------
-for /f "delims=" %%a in ('powershell -NoProfile -Command "[char]27" 2^>nul') do set "ESC=%%a"
-if not defined ESC (
-    set "R="  & set "B="  & set "PU=" & set "GR="
-    set "RD=" & set "AM=" & set "SL=" & set "WH=" & set "DGR="
-) else (
-    set "R=!ESC![0m"
-    set "B=!ESC![1m"
-    set "PU=!ESC![38;5;141m"
-    set "GR=!ESC![38;5;78m"
-    set "RD=!ESC![38;5;203m"
-    set "AM=!ESC![38;5;214m"
-    set "SL=!ESC![38;5;245m"
-    set "WH=!ESC![38;5;231m"
-    set "DGR=!ESC![38;5;240m"
-)
+call :ui_init
+
+set "R=!ESC![0m"
+set "B=!ESC![1m"
+set "PU=!ESC![38;5;141m"
+set "GR=!ESC![38;5;78m"
+set "RD=!ESC![38;5;203m"
+set "AM=!ESC![38;5;214m"
+set "SL=!ESC![38;5;245m"
+set "WH=!ESC![38;5;231m"
+set "DGR=!ESC![38;5;240m"
 
 :: -------------------------------------------------------------------------
 :: 4. Config
@@ -104,30 +103,44 @@ exit /b 0
 call :header "3/7" "Removing QZ Tray application"
 
 if not exist "%QZ_UNINSTALLER%" (
-    call :warn "  No uninstaller found - will remove folders directly"
+    call :warn "No uninstaller found - will remove folders directly"
     exit /b 0
 )
 
 set "qz-print_silent=1"
-echo   !SL!Running QZ Tray uninstaller...
+call :arrow "Running QZ Tray uninstaller"
 powershell -NoProfile -Command "Start-Process -FilePath '%QZ_UNINSTALLER%' -ArgumentList '/S' -WindowStyle Hidden" >nul 2>&1
 
 set /a POLL=0
+set "BAR_LABEL=Waiting for uninstall"
+set "BAR_TOTAL=30"
 call :poll_uninstall
 exit /b 0
 
 :poll_uninstall
+set "BAR_DONE=!POLL!"
+call :ui_bar
 timeout /t 2 /nobreak >nul 2>&1
 set /a POLL+=1
-if not exist "%QZ_INSTALL_DIR%\uninstall.exe" (
-    call :ok "QZ Tray removed"
-    exit /b 0
-)
-if !POLL! GEQ 30 (
-    call :warn "Uninstaller timed out - removing folders directly"
-    exit /b 0
-)
+if not exist "%QZ_INSTALL_DIR%\uninstall.exe" goto :poll_uninstall_gone
+if !POLL! GEQ 30 goto :poll_uninstall_timeout
 goto :poll_uninstall
+
+:poll_uninstall_gone
+set "BAR_DONE=30"
+call :ui_bar
+call :ui_cursor_show
+echo.
+call :ok "QZ Tray removed"
+exit /b 0
+
+:poll_uninstall_timeout
+set "BAR_DONE=30"
+call :ui_bar
+call :ui_cursor_show
+echo.
+call :warn "Uninstaller timed out - removing folders directly"
+exit /b 0
 
 :: =========================================================================
 ::   STEP 4 - Clean up install folders
@@ -220,116 +233,255 @@ if !errorLevel! equ 0 set "VERIFY_OK=0"
 
 if "!VERIFY_OK!"=="1" (
     call :ok "Verified: QZ Tray is fully removed"
-    call :complete_ok
+    set "FINAL_STATE=OK"
 ) else (
     call :warn "Some QZ Tray files or processes are still present"
-    call :complete_warn
+    set "FINAL_STATE=WARN"
 )
+call :complete
 exit /b 0
 
 :: =========================================================================
-::   UI (pure ASCII - no chcp needed, no encoding issues)
+::   UI (pure ASCII on disk - real glyphs decoded from hex at runtime)
 :: =========================================================================
+
+:ui_init
+set "ESC="
+set "WINVER=0"
+for /f "tokens=4 delims=. " %%v in ('ver') do set "WINVER=%%v"
+if %WINVER% GEQ 10 (
+    for /f %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
+)
+set "G_OK="
+set "G_DOT="
+if not defined ESC goto :ui_glyph_fallback
+set "GL=%TEMP%\grabvoui_glyphs_%RANDOM%"
+> "%GL%.hex" (
+    echo e29c940d0a
+    echo e29c960d0a
+    echo e29aa00d0a
+    echo e280ba0d0a
+    echo e294810d0a
+    echo e294800d0a
+    echo e2948c0d0a
+    echo e294820d0a
+    echo e294940d0a
+    echo e280a20d0a
+    echo e2a08b0d0a
+    echo e2a0990d0a
+    echo e2a0b90d0a
+    echo e2a0b80d0a
+    echo e2a0bc0d0a
+    echo e2a0b40d0a
+    echo e2a0a60d0a
+    echo e2a0a70d0a
+    echo e2a0870d0a
+    echo e2a08f0d0a
+)
+certutil -f -decodehex "%GL%.hex" "%GL%.txt" >nul 2>&1
+if exist "%GL%.txt" (
+    < "%GL%.txt" (
+        set /p G_OK=
+        set /p G_FAIL=
+        set /p G_WARN=
+        set /p G_ARROW=
+        set /p G_BAR1=
+        set /p G_BAR2=
+        set /p G_TL=
+        set /p G_V=
+        set /p G_BL=
+        set /p G_DOT=
+        set /p G_SP0=
+        set /p G_SP1=
+        set /p G_SP2=
+        set /p G_SP3=
+        set /p G_SP4=
+        set /p G_SP5=
+        set /p G_SP6=
+        set /p G_SP7=
+        set /p G_SP8=
+        set /p G_SP9=
+    )
+)
+del "%GL%.hex" "%GL%.txt" 2>nul
+:ui_glyph_fallback
+if not defined G_DOT (
+    set "G_OK=+"
+    set "G_FAIL=x"
+    set "G_WARN=*"
+    set "G_ARROW=>"
+    set "G_BAR1=#"
+    set "G_BAR2=."
+    set "G_TL=+"
+    set "G_V=|"
+    set "G_BL=+"
+    set "G_DOT=-"
+    set "G_SP0=-"
+    set "G_SP1=\"
+    set "G_SP2=|"
+    set "G_SP3=/"
+    set "G_SP4=-"
+    set "G_SP5=\"
+    set "G_SP6=|"
+    set "G_SP7=/"
+    set "G_SP8=-"
+    set "G_SP9=\"
+)
+set "RULE="
+for /l %%k in (1,1,58) do set "RULE=!RULE!!G_BAR2!"
+set "SPIN_I=0"
+set "BF_LAST=-1"
+set "CUR_HIDDEN="
+set "CUR_HIDE="
+set "CUR_SHOW="
+if defined ESC set "CUR_HIDE=%ESC%[?25l"
+if defined ESC set "CUR_SHOW=%ESC%[?25h"
+:: a run that was interrupted earlier may have left the cursor hidden
+if defined ESC <nul set /p "=%CUR_SHOW%"
+exit /b
 
 :banner
 echo.
-echo   %RD%%B%============================================================%R%
+echo   %DGR%- a Grabvo tool -%R%
+echo   %B%%PU%GRABVO%R%  %DGR%QZ Tray Uninstaller%R%
+echo   %DGR%!RULE!%R%
+echo   %AM%This will remove QZ Tray and its trust data from this%R%
+echo   %AM%computer. You can always reinstall with the Grabvo%R%
+echo   %AM%installer if you change your mind.%R%
 echo.
-echo   %PU%%B%.d8888b.                    888                        %R%
-echo   %PU%%B%d88P  Y88b                  888                        %R%
-echo   %PU%%B%888    888                  888                        %R%
-echo   %PU%%B%888        888d888  8888b.  88888b.  888  888  .d88b.  %R%
-echo   %PU%%B%888  88888 888P"       "88b 888 "88b 888  888 d88""88b %R%
-echo   %PU%%B%888    888 888     .d888888 888  888 Y88  88P 888  888 %R%
-echo   %PU%%B%Y88b  d88P 888     888  888 888 d88P  Y8bd8P  Y88..88P %R%
-echo   %PU%%B% "Y8888P88 888     "Y888888 88888P"    Y88P    "Y88P"  %R%
+set "BAR_LABEL=Starting"
+set "BAR_TOTAL=3"
+for /l %%i in (1,1,3) do (
+    set "BAR_DONE=%%i"
+    set "BAR_TEXT=%%i s"
+    call :ui_bar
+    timeout /t 1 /nobreak >nul 2>&1
+)
+call :ui_cursor_show
 echo.
-echo   %WH%%B%                QZ Tray Uninstaller%R%
-echo   %SL%        Remove QZ Tray + the Grabvo certificate%R%
 echo.
-echo   %RD%%B%============================================================%R%
-echo.
-echo   %AM%%B%This will remove QZ Tray and its trust data from%R%
-echo   %AM%%B%this computer. You can always reinstall with the%R%
-echo   %AM%%B%Grabvo installer if you change your mind.%R%
-echo.
-call :ok "Starting in 3 seconds..."
-timeout /t 3 /nobreak >nul 2>&1
 exit /b 0
 
 :header
 echo.
-echo   %PU%%B%[%~1]%R%   %WH%%B%%~2%R%
-echo   %DGR%         -------------------------------------------------%R%
+echo   %PU%%B%[%~1]%R%  %WH%%B%%~2%R%
+echo   %DGR%!RULE!%R%
 exit /b 0
 
 :ok
-echo   %GR%%B%[OK]%R%    %WH%%~1%R%
+echo   %GR%%B%!G_OK!%R%   %WH%%~1%R%
 exit /b 0
 
 :warn
-echo   %AM%%B%[!!]%R%    %AM%%~1%R%
+echo   %AM%%B%!G_WARN!%R%   %AM%%~1%R%
 exit /b 0
 
 :fail
-echo   %RD%%B%[XX]%R%    %RD%%B%%~1%R%
+echo   %RD%%B%!G_FAIL!%R%   %RD%%B%%~1%R%
 exit /b 1
 
-:complete_ok
-cls
-echo.
-echo   %GR%%B%============================================================%R%
-echo.
-echo   %PU%%B%.d8888b.                    888                        %R%
-echo   %PU%%B%d88P  Y88b                  888                        %R%
-echo   %PU%%B%888    888                  888                        %R%
-echo   %PU%%B%888        888d888  8888b.  88888b.  888  888  .d88b.  %R%
-echo   %PU%%B%888  88888 888P"       "88b 888 "88b 888  888 d88""88b %R%
-echo   %PU%%B%888    888 888     .d888888 888  888 Y88  88P 888  888 %R%
-echo   %PU%%B%Y88b  d88P 888     888  888 888 d88P  Y8bd8P  Y88..88P %R%
-echo   %PU%%B% "Y8888P88 888     "Y888888 88888P"    Y88P    "Y88P"  %R%
-echo.
-echo   %GR%%B%                 UNINSTALL COMPLETE%R%
-echo   %SL%         QZ Tray has been removed from this computer%R%
-echo.
-echo   %GR%%B%============================================================%R%
-echo.
-echo   %WH%QZ Tray and the Grabvo certificate trust have been%R%
-echo   %WH%removed from this computer.%R%
-echo.
-echo   %SL%Note: the QZ Tray system tray icon may remain until you%R%
-echo   %SL%log out and back in. That is normal on Windows - Windows%R%
-echo   %SL%caches tray icons for a few minutes after an app exits.%R%
-echo.
+:arrow
+echo   %PU%!G_ARROW!%R%   %SL%%~1%R%
 exit /b 0
 
-:complete_warn
+:: One in-place progress line from BAR_LABEL, BAR_DONE and BAR_TOTAL: a
+:: spinner frame, the label, a 28-cell bar, the percent, and BAR_TEXT
+:: (or done/total when it isn't set). Redrawn with ANSI cursor codes
+:: (erase line + go to column 1). Consoles without ANSI only print a
+:: single "done" line once BAR_DONE reaches BAR_TOTAL.
+:ui_bar
+set /a BP=BAR_DONE*100/BAR_TOTAL
+set /a BF=BAR_DONE*28/BAR_TOTAL
+set /a SPIN_I=(SPIN_I+1)%%10
+for %%n in (!SPIN_I!) do set "SPIN_CH=!G_SP%%n!"
+if not defined ESC goto :ui_bar_plain
+if not defined CUR_HIDDEN (
+    <nul set /p "=%CUR_HIDE%"
+    set "CUR_HIDDEN=1"
+)
+if not "!BF!"=="!BF_LAST!" (
+    set "BB1="
+    set "BB2="
+    for /l %%k in (1,1,28) do (
+        if %%k leq !BF! (set "BB1=!BB1!!G_BAR1!") else (set "BB2=!BB2!!G_BAR2!")
+    )
+    set "BF_LAST=!BF!"
+)
+set "BT=!BAR_DONE!/!BAR_TOTAL!"
+if defined BAR_TEXT set "BT=!BAR_TEXT!"
+<nul set /p "=%ESC%[2K%ESC%[1G  %PU%!SPIN_CH!%R% !BAR_LABEL!  %PU%!BB1!%R%%DGR%!BB2!%R%  %B%!BP!%%%R%  %DGR%!BT!%R%"
+exit /b
+:ui_bar_plain
+if "!BAR_DONE!"=="!BAR_TOTAL!" <nul set /p "=  !BAR_LABEL!  done"
+exit /b
+
+:ui_cursor_show
+if defined CUR_HIDDEN (
+    <nul set /p "=%CUR_SHOW%"
+    set "CUR_HIDDEN="
+)
+exit /b
+
+:: Boxed summary card for the completion screen.
+:ui_card_top
+echo   %GR%%B%!G_TL! !MSG!%R%
+exit /b
+
+:ui_row
+echo   %GR%!G_V!%R%  %DGR%!ROW_K!%R%  !ROW_V!
+exit /b
+
+:ui_card_end
+echo   %GR%!G_BL!%R%
+exit /b
+
+:: =========================================================================
+::   COMPLETION - one boxed summary
+:: =========================================================================
+:complete
 cls
 echo.
-echo   %AM%%B%============================================================%R%
+if "!FINAL_STATE!"=="OK" (
+    echo   %GR%%B%!G_OK! UNINSTALL COMPLETE%R%
+    echo   %SL%QZ Tray has been removed from this computer%R%
+) else (
+    echo   %AM%%B%!G_WARN! CLEANUP FINISHED WITH WARNINGS%R%
+    echo   %SL%Some QZ Tray files could not be removed%R%
+)
+echo   %DGR%!RULE!%R%
 echo.
-echo   %PU%%B%.d8888b.                    888                        %R%
-echo   %PU%%B%d88P  Y88b                  888                        %R%
-echo   %PU%%B%888    888                  888                        %R%
-echo   %PU%%B%888        888d888  8888b.  88888b.  888  888  .d88b.  %R%
-echo   %PU%%B%888  88888 888P"       "88b 888 "88b 888  888 d88""88b %R%
-echo   %PU%%B%888    888 888     .d888888 888  888 Y88  88P 888  888 %R%
-echo   %PU%%B%Y88b  d88P 888     888  888 888 d88P  Y8bd8P  Y88..88P %R%
-echo   %PU%%B% "Y8888P88 888     "Y888888 88888P"    Y88P    "Y88P"  %R%
+
+set "MSG=SUMMARY"
+call :ui_card_top
+set "ROW_K=Application"
+if "!VERIFY_OK!"=="1" (set "ROW_V=removed") else (set "ROW_V=some files remain")
+call :ui_row
+set "ROW_K=Trust data "
+set "ROW_V=%QZ_USER_DATA% and %QZ_MACHINE_DATA%"
+call :ui_row
+set "ROW_K=Auto-start "
+set "ROW_V=cleared"
+call :ui_row
+call :ui_card_end
 echo.
-echo   %AM%%B%            CLEANUP FINISHED WITH WARNINGS%R%
-echo   %SL%        Some QZ Tray files could not be removed%R%
-echo.
-echo   %AM%%B%============================================================%R%
-echo.
-echo   %WH%Some QZ Tray files or processes are still present on%R%
-echo   %WH%this computer. This usually means QZ Tray was still%R%
-echo   %WH%running when the script started.%R%
-echo.
-echo   %SL%Try this:%R%
-echo   %SL%  1. Right-click the QZ Tray tray icon and choose Exit%R%
-echo   %SL%  2. Run this uninstaller again%R%
-echo   %SL%  3. If it still fails, restart Windows and run it once more%R%
+
+if "!FINAL_STATE!"=="OK" (
+    echo   %WH%QZ Tray and the Grabvo certificate trust have been%R%
+    echo   %WH%removed from this computer.%R%
+    echo.
+    echo   %SL%Note: the QZ Tray system tray icon may remain until you%R%
+    echo   %SL%log out and back in. That is normal on Windows - Windows%R%
+    echo   %SL%caches tray icons for a few minutes after an app exits.%R%
+) else (
+    echo   %WH%Some QZ Tray files or processes are still present on%R%
+    echo   %WH%this computer. This usually means QZ Tray was still%R%
+    echo   %WH%running when the script started.%R%
+    echo.
+    echo   %SL%Try this:%R%
+    echo   %SL%  1. Right-click the QZ Tray tray icon and choose Exit%R%
+    echo   %SL%  2. Run this uninstaller again%R%
+    echo   %SL%  3. If it still fails, restart Windows and run it once more%R%
+)
 echo.
 exit /b 0
 

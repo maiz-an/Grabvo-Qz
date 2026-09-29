@@ -3,12 +3,17 @@ setlocal EnableExtensions EnableDelayedExpansion
 title Grabvo - QZ Tray Setup
 
 :: =========================================================================
-::   Grabvo QZ Tray Auto-Installer (v7)
+::   Grabvo QZ Tray Auto-Installer (v8)
 ::   ------------------------------------------------------------------------
 ::   Installs QZ Tray and registers the Grabvo certificate.
 ::   Tries multiple whitelist invocation styles and verifies each by
 ::   checking whether allowed.dat actually grew.
-::   All output is pure ASCII - no chcp needed, no encoding issues.
+::
+::   UI conventions borrowed from LinkCatty (github.com/maiz-an/LinkCatty):
+::   real glyphs decoded from hex at runtime (certutil), a live spinner +
+::   progress bar for downloads/waits, and a boxed summary card at the end.
+::   The file itself stays pure ASCII with CRLF endings either way - no
+::   chcp needed, no encoding issues.
 :: =========================================================================
 
 :: -------------------------------------------------------------------------
@@ -28,23 +33,19 @@ if %errorLevel% neq 0 (
 )
 
 :: -------------------------------------------------------------------------
-:: 3. Colors
+:: 3. UI init (glyphs, spinner, colors)
 :: -------------------------------------------------------------------------
-for /f "delims=" %%a in ('powershell -NoProfile -Command "[char]27" 2^>nul') do set "ESC=%%a"
-if not defined ESC (
-    set "R="  & set "B="  & set "PU=" & set "GR="
-    set "RD=" & set "AM=" & set "SL=" & set "WH=" & set "DGR="
-) else (
-    set "R=!ESC![0m"
-    set "B=!ESC![1m"
-    set "PU=!ESC![38;5;141m"
-    set "GR=!ESC![38;5;78m"
-    set "RD=!ESC![38;5;203m"
-    set "AM=!ESC![38;5;214m"
-    set "SL=!ESC![38;5;245m"
-    set "WH=!ESC![38;5;231m"
-    set "DGR=!ESC![38;5;240m"
-)
+call :ui_init
+
+set "R=!ESC![0m"
+set "B=!ESC![1m"
+set "PU=!ESC![38;5;141m"
+set "GR=!ESC![38;5;78m"
+set "RD=!ESC![38;5;203m"
+set "AM=!ESC![38;5;214m"
+set "SL=!ESC![38;5;245m"
+set "WH=!ESC![38;5;231m"
+set "DGR=!ESC![38;5;240m"
 
 :: -------------------------------------------------------------------------
 :: 4. Config
@@ -59,6 +60,11 @@ set "QZ_JAR=%QZ_INSTALL_DIR%\qz-tray.jar"
 set "QZ_JAVA=%QZ_INSTALL_DIR%\runtime\bin\javaw.exe"
 set "MAX_RETRIES=3"
 set "RETRY_DELAY=4"
+set "FINAL_STATE=WARN"
+set "QZ_NUM=?"
+set "REGISTER_OK=0"
+set "STARTUP_OK=0"
+set "RUNNING=0"
 
 set "qz-print_silent=1"
 
@@ -76,6 +82,7 @@ call :step6
 call :step7
 call :step8
 
+call :complete
 goto :cleanup
 
 :: =========================================================================
@@ -125,12 +132,12 @@ timeout /t 1 /nobreak >nul 2>&1
 
 set "QZ_EXE=%TEMP_DIR%\qz-tray-setup.exe"
 set "QZ_URL=https://github.com/qzind/tray/releases/download/!QZ_VERSION!/qz-tray-!QZ_NUM!-x86_64.exe"
-call :download "!QZ_URL!" "!QZ_EXE!"
+call :download "!QZ_URL!" "!QZ_EXE!" "QZ Tray !QZ_NUM!"
 
 if not exist "!QZ_EXE!" (
     call :warn "Primary asset missing - trying alternate name"
     set "QZ_URL=https://github.com/qzind/tray/releases/download/!QZ_VERSION!/qz-tray-!QZ_NUM!.exe"
-    call :download "!QZ_URL!" "!QZ_EXE!"
+    call :download "!QZ_URL!" "!QZ_EXE!" "QZ Tray !QZ_NUM!"
 )
 
 if not exist "!QZ_EXE!" (
@@ -148,11 +155,12 @@ call :header "4/8" "Installing QZ Tray"
 
 set "QZ_OK=0"
 
-echo   !SL!Setting up QZ Tray... this may take a minute
-echo.
+call :arrow "Setting up QZ Tray - this may take a minute"
 powershell -NoProfile -Command "$env:qz_print_silent='1'; Start-Process -FilePath '!QZ_EXE!' -ArgumentList '/S' -WindowStyle Hidden -Wait" >nul 2>&1
 
 set /a POLL=0
+set "BAR_LABEL=Waiting for install"
+set "BAR_TOTAL=30"
 call :poll_install
 
 if "!QZ_OK!"=="0" (
@@ -172,14 +180,22 @@ powershell -NoProfile -Command "!PROC_KILL!" >nul 2>&1
 exit /b 0
 
 :poll_install
+set "BAR_DONE=!POLL!"
+call :ui_bar
 timeout /t 2 /nobreak >nul 2>&1
 set /a POLL+=1
 if exist "%QZ_CONSOLE%" set "QZ_OK=1"
 if exist "%QZ_TRAY_EXE%" set "QZ_OK=1"
 if exist "%QZ_JAR%" set "QZ_OK=1"
-if "!QZ_OK!"=="1" exit /b 0
-if !POLL! GEQ 30 exit /b 0
+if "!QZ_OK!"=="1" goto :poll_install_done
+if !POLL! GEQ 30 goto :poll_install_done
 goto :poll_install
+:poll_install_done
+set "BAR_DONE=30"
+call :ui_bar
+call :ui_cursor_show
+echo.
+exit /b 0
 
 :: =========================================================================
 ::   STEP 5 - Download Grabvo certificate
@@ -187,7 +203,7 @@ goto :poll_install
 :step5
 call :header "5/8" "Downloading the Grabvo certificate"
 set "CERT_FILE=%TEMP_DIR%\%CERT_FILENAME%"
-call :download "%CERT_URL%" "%CERT_FILE%"
+call :download "%CERT_URL%" "%CERT_FILE%" "Grabvo certificate"
 
 if not exist "%CERT_FILE%" (
     call :fail "Could not download %CERT_URL%"
@@ -228,12 +244,10 @@ if exist "%USER_ALLOWED%" (
 :: is the one that triggers "The system cannot find the drive specified"
 :: on some Launch4j builds, so it's tried LAST.
 if exist "%QZ_CONSOLE%" (
-    echo   !SL!Registering with QZ Tray...
+    call :arrow "Registering with QZ Tray"
 
     :: --- Attempt 1: space-separated, full path quoted ---
-    echo.
     "%QZ_CONSOLE%" --whitelist "%CERT_FILE%" >nul 2>&1
-    echo.
     timeout /t 2 /nobreak >nul 2>&1
     taskkill /IM "qz-tray-console.exe" /F >nul 2>&1
 
@@ -389,136 +403,324 @@ if "!RUNNING!"=="1" (
 exit /b 0
 
 :: =========================================================================
-::   SUBROUTINES
+::   SUBROUTINES - functional
 :: =========================================================================
 
+:: Live-progress download. in: %1 URL  %2 OUT_FILE  %3 friendly label
+:: Runs curl (or PowerShell) as a detached background process so this
+:: script can keep redrawing a spinner + byte-based progress bar while
+:: it waits, instead of sitting on a blocking call with no feedback.
 :download
 set "DL_URL=%~1"
 set "DL_OUT=%~2"
+set "DL_LABEL=%~3"
+if not defined DL_LABEL set "DL_LABEL=Downloading"
 set "DL_ATTEMPT=0"
 
 :download_loop
 set /a DL_ATTEMPT+=1
 if exist "%DL_OUT%" del /f /q "%DL_OUT%" >nul 2>&1
 
-where curl.exe >nul 2>&1
-if !errorLevel! equ 0 (
-    curl.exe -L -f -s -S --connect-timeout 20 -o "%DL_OUT%" "%DL_URL%" >nul 2>&1
-) else (
-    powershell -NoProfile -Command "try { Invoke-WebRequest -Uri '%DL_URL%' -OutFile '%DL_OUT%' -UseBasicParsing -TimeoutSec 60 -ErrorAction Stop; exit 0 } catch { exit 1 }" >nul 2>&1
+:: Content-Length for a real percentage bar; 0 (indeterminate) if
+:: it can't be read. Written to a file and parsed as a plain file - a
+:: `for /f` reading directly off a piped command here has been observed
+:: to corrupt this script's own label table on some systems, so that
+:: form is deliberately avoided.
+set "DL_TOTAL_KB=0"
+set "DL_HDR=%TEMP%\grabvo_dl_hdr_%RANDOM%.txt"
+del "%DL_HDR%" 2>nul
+curl -sIL --max-time 15 "%DL_URL%" > "%DL_HDR%" 2>nul
+if exist "%DL_HDR%" (
+    for /f "usebackq tokens=1,2 delims=: " %%A in ("%DL_HDR%") do if /i "%%A"=="content-length" set /a DL_TOTAL_KB=%%B/1024
+    del "%DL_HDR%" 2>nul
 )
 
-if exist "%DL_OUT%" (
+set "DL_DONE_FILE=%TEMP%\grabvo_dl_done_%RANDOM%.txt"
+set "DL_HELPER=%TEMP%\grabvo_dl_helper_%RANDOM%.cmd"
+del "%DL_DONE_FILE%" 2>nul
+> "%DL_HELPER%" (
+    echo @echo off
+    echo where curl.exe ^>nul 2^>^&1
+    echo if not errorlevel 1 ^(
+    echo   curl.exe -L -f -s -S --connect-timeout 20 --max-time 600 -o "%DL_OUT%" "%DL_URL%" 2^>nul
+    echo ^) else ^(
+    echo   powershell -NoProfile -Command "try { Invoke-WebRequest -Uri '%DL_URL%' -OutFile '%DL_OUT%' -UseBasicParsing -TimeoutSec 300 -ErrorAction Stop; exit 0 } catch { exit 1 }"
+    echo ^)
+    echo ^>"%DL_DONE_FILE%" echo %%errorlevel%%
+)
+start "" /b cmd /c "%DL_HELPER%" <nul >nul 2>&1
+
+set "BAR_LABEL=%DL_LABEL%"
+set "BAR_TOTAL=100"
+:download_wait
+if not exist "%DL_DONE_FILE%" goto :download_progress
+for %%s in ("%DL_DONE_FILE%") do if %%~zs GTR 0 goto :download_done
+:download_progress
+set "DL_KB=0"
+if exist "%DL_OUT%" for %%s in ("%DL_OUT%") do set /a DL_KB=%%~zs/1024
+set "BAR_DONE=0"
+if %DL_TOTAL_KB% GTR 0 set /a BAR_DONE=DL_KB*100/DL_TOTAL_KB
+if %BAR_DONE% GTR 99 set "BAR_DONE=99"
+set /a DL_MB=DL_KB/1024
+if %DL_TOTAL_KB% GTR 0 (
+    set /a DL_TMB=DL_TOTAL_KB/1024
+    set "BAR_TEXT=!DL_MB! / !DL_TMB! MB"
+) else (
+    set "BAR_TEXT=!DL_KB! KB"
+)
+call :ui_bar
+ping 127.0.0.1 -n 1 >nul
+ping 127.0.0.1 -n 1 >nul
+ping 127.0.0.1 -n 1 >nul
+goto :download_wait
+
+:download_done
+set "DL_CODE=1"
+set /p DL_CODE=<"%DL_DONE_FILE%"
+set "BAR_DONE=100"
+set "BAR_TEXT=done"
+call :ui_bar
+call :ui_cursor_show
+echo.
+del "%DL_DONE_FILE%" "%DL_HELPER%" 2>nul
+
+if "!DL_CODE!"=="0" if exist "%DL_OUT%" (
     for %%A in ("%DL_OUT%") do set "DL_SIZE=%%~zA"
     if !DL_SIZE! GTR 0 exit /b 0
-    del /f /q "%DL_OUT%" >nul 2>&1
 )
+if exist "%DL_OUT%" del /f /q "%DL_OUT%" >nul 2>&1
 
 if !DL_ATTEMPT! lss %MAX_RETRIES% (
     call :warn "Attempt !DL_ATTEMPT!/%MAX_RETRIES% failed - retrying in %RETRY_DELAY%s"
     timeout /t %RETRY_DELAY% /nobreak >nul 2>&1
     goto :download_loop
 )
-
 exit /b 1
 
 :: =========================================================================
-::   UI (pure ASCII)
+::   UI (pure ASCII on disk - real glyphs decoded from hex at runtime)
 :: =========================================================================
+
+:ui_init
+set "ESC="
+set "WINVER=0"
+for /f "tokens=4 delims=. " %%v in ('ver') do set "WINVER=%%v"
+if %WINVER% GEQ 10 (
+    for /f %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
+)
+set "G_OK="
+set "G_DOT="
+if not defined ESC goto :ui_glyph_fallback
+set "GL=%TEMP%\grabvoui_glyphs_%RANDOM%"
+> "%GL%.hex" (
+    echo e29c940d0a
+    echo e29c960d0a
+    echo e29aa00d0a
+    echo e280ba0d0a
+    echo e294810d0a
+    echo e294800d0a
+    echo e2948c0d0a
+    echo e294820d0a
+    echo e294940d0a
+    echo e280a20d0a
+    echo e2a08b0d0a
+    echo e2a0990d0a
+    echo e2a0b90d0a
+    echo e2a0b80d0a
+    echo e2a0bc0d0a
+    echo e2a0b40d0a
+    echo e2a0a60d0a
+    echo e2a0a70d0a
+    echo e2a0870d0a
+    echo e2a08f0d0a
+)
+certutil -f -decodehex "%GL%.hex" "%GL%.txt" >nul 2>&1
+if exist "%GL%.txt" (
+    < "%GL%.txt" (
+        set /p G_OK=
+        set /p G_FAIL=
+        set /p G_WARN=
+        set /p G_ARROW=
+        set /p G_BAR1=
+        set /p G_BAR2=
+        set /p G_TL=
+        set /p G_V=
+        set /p G_BL=
+        set /p G_DOT=
+        set /p G_SP0=
+        set /p G_SP1=
+        set /p G_SP2=
+        set /p G_SP3=
+        set /p G_SP4=
+        set /p G_SP5=
+        set /p G_SP6=
+        set /p G_SP7=
+        set /p G_SP8=
+        set /p G_SP9=
+    )
+)
+del "%GL%.hex" "%GL%.txt" 2>nul
+:ui_glyph_fallback
+if not defined G_DOT (
+    set "G_OK=+"
+    set "G_FAIL=x"
+    set "G_WARN=*"
+    set "G_ARROW=>"
+    set "G_BAR1=#"
+    set "G_BAR2=."
+    set "G_TL=+"
+    set "G_V=|"
+    set "G_BL=+"
+    set "G_DOT=-"
+    set "G_SP0=-"
+    set "G_SP1=\"
+    set "G_SP2=|"
+    set "G_SP3=/"
+    set "G_SP4=-"
+    set "G_SP5=\"
+    set "G_SP6=|"
+    set "G_SP7=/"
+    set "G_SP8=-"
+    set "G_SP9=\"
+)
+set "RULE="
+for /l %%k in (1,1,58) do set "RULE=!RULE!!G_BAR2!"
+set "SPIN_I=0"
+set "BF_LAST=-1"
+set "CUR_HIDDEN="
+set "CUR_HIDE="
+set "CUR_SHOW="
+if defined ESC set "CUR_HIDE=%ESC%[?25l"
+if defined ESC set "CUR_SHOW=%ESC%[?25h"
+:: a run that was interrupted earlier may have left the cursor hidden
+if defined ESC <nul set /p "=%CUR_SHOW%"
+exit /b
 
 :banner
 echo.
-echo   %PU%%B%============================================================%R%
-echo.
-echo   %PU%%B%.d8888b.                    888                        %R%
-echo   %PU%%B%d88P  Y88b                  888                        %R%
-echo   %PU%%B%888    888                  888                        %R%
-echo   %PU%%B%888        888d888  8888b.  88888b.  888  888  .d88b.  %R%
-echo   %PU%%B%888  88888 888P"       "88b 888 "88b 888  888 d88""88b %R%
-echo   %PU%%B%888    888 888     .d888888 888  888 Y88  88P 888  888 %R%
-echo   %PU%%B%Y88b  d88P 888     888  888 888 d88P  Y8bd8P  Y88..88P %R%
-echo   %PU%%B% "Y8888P88 888     "Y888888 88888P"    Y88P    "Y88P"  %R%
-echo.
-echo   %WH%%B%                  QZ Tray Auto-Installer%R%
-echo   %SL%                Install QZ Tray + trust the%R%
-echo   %SL%             Grabvo certificate for silent printing%R%
-echo.
-echo   %PU%%B%============================================================%R%
+echo   %DGR%- a Grabvo tool -%R%
+echo   %B%%PU%GRABVO%R%  %DGR%QZ Tray Setup%R%
+echo   %DGR%!RULE!%R%
+echo   %SL%Install QZ Tray + trust the Grabvo certificate%R%
+echo   %SL%for silent printing, with no popups.%R%
 echo.
 exit /b 0
 
 :header
 echo.
-echo   %PU%%B%[%~1]%R%   %WH%%B%%~2%R%
-echo   %DGR%         -------------------------------------------------%R%
+echo   %PU%%B%[%~1]%R%  %WH%%B%%~2%R%
+echo   %DGR%!RULE!%R%
 exit /b 0
 
 :ok
-echo   %GR%%B%[OK]%R%    %WH%%~1%R%
+echo   %GR%%B%!G_OK!%R%   %WH%%~1%R%
 exit /b 0
 
-:: The DisableDelayedExpansion below is what fixes `[!!]` rendering as `[]`.
-:: With EnableDelayedExpansion on (which the rest of the script needs for
-:: the !VAR! syntax), a literal `!` inside an echo is parsed as a variable
-:: delimiter. Wrapping just this echo keeps the badge literal without
-:: turning off delayed expansion for the whole script.
 :warn
-setlocal DisableDelayedExpansion
-echo   %AM%%B%[!!]%R%    %AM%%~1%R%
-endlocal
+echo   %AM%%B%!G_WARN!%R%   %AM%%~1%R%
 exit /b 0
 
 :fail
-echo   %RD%%B%[XX]%R%    %RD%%B%%~1%R%
+echo   %RD%%B%!G_FAIL!%R%   %RD%%B%%~1%R%
 exit /b 1
 
+:arrow
+echo   %PU%!G_ARROW!%R%   %SL%%~1%R%
+exit /b 0
+
+:: One in-place progress line from BAR_LABEL, BAR_DONE and BAR_TOTAL: a
+:: spinner frame, the label, a 28-cell bar, the percent, and BAR_TEXT
+:: (or done/total when it isn't set). Redrawn with ANSI cursor codes
+:: (erase line + go to column 1). Consoles without ANSI only print a
+:: single "done" line once BAR_DONE reaches BAR_TOTAL.
+:ui_bar
+set /a BP=BAR_DONE*100/BAR_TOTAL
+set /a BF=BAR_DONE*28/BAR_TOTAL
+set /a SPIN_I=(SPIN_I+1)%%10
+for %%n in (!SPIN_I!) do set "SPIN_CH=!G_SP%%n!"
+if not defined ESC goto :ui_bar_plain
+if not defined CUR_HIDDEN (
+    <nul set /p "=%CUR_HIDE%"
+    set "CUR_HIDDEN=1"
+)
+if not "!BF!"=="!BF_LAST!" (
+    set "BB1="
+    set "BB2="
+    for /l %%k in (1,1,28) do (
+        if %%k leq !BF! (set "BB1=!BB1!!G_BAR1!") else (set "BB2=!BB2!!G_BAR2!")
+    )
+    set "BF_LAST=!BF!"
+)
+set "BT=!BAR_DONE!/!BAR_TOTAL!"
+if defined BAR_TEXT set "BT=!BAR_TEXT!"
+<nul set /p "=%ESC%[2K%ESC%[1G  %PU%!SPIN_CH!%R% !BAR_LABEL!  %PU%!BB1!%R%%DGR%!BB2!%R%  %B%!BP!%%%R%  %DGR%!BT!%R%"
+exit /b
+:ui_bar_plain
+if "!BAR_DONE!"=="!BAR_TOTAL!" <nul set /p "=  !BAR_LABEL!  done"
+exit /b
+
+:ui_cursor_show
+if defined CUR_HIDDEN (
+    <nul set /p "=%CUR_SHOW%"
+    set "CUR_HIDDEN="
+)
+exit /b
+
+:: Boxed summary card for the completion screen.
+:ui_card_top
+echo   %GR%%B%!G_TL! !MSG!%R%
+exit /b
+
+:ui_row
+echo   %GR%!G_V!%R%  %DGR%!ROW_K!%R%  !ROW_V!
+exit /b
+
+:ui_card_end
+echo   %GR%!G_BL!%R%
+exit /b
+
+:: =========================================================================
+::   COMPLETION - one boxed summary instead of a repeated banner
+:: =========================================================================
 :complete
+cls
+echo.
 if "!FINAL_STATE!"=="OK" (
-    cls
-    echo.
-    echo   %GR%%B%============================================================%R%
-    echo.
-    echo   %PU%%B%.d8888b.                    888                        %R%
-    echo   %PU%%B%d88P  Y88b                  888                        %R%
-    echo   %PU%%B%888    888                  888                        %R%
-    echo   %PU%%B%888        888d888  8888b.  88888b.  888  888  .d88b.  %R%
-    echo   %PU%%B%888  88888 888P"       "88b 888 "88b 888  888 d88""88b %R%
-    echo   %PU%%B%888    888 888     .d888888 888  888 Y88  88P 888  888 %R%
-    echo   %PU%%B%Y88b  d88P 888     888  888 888 d88P  Y8bd8P  Y88..88P %R%
-    echo   %PU%%B% "Y8888P88 888     "Y888888 88888P"    Y88P    "Y88P"  %R%
-    echo.
-    echo   %GR%%B%                 SETUP COMPLETE%R%
-    echo   %SL%        QZ Tray is installed and ready to print%R%
-    echo.
-    echo   %GR%%B%============================================================%R%
-    echo.
-    echo   %WH%QZ Tray is installed, the Grabvo certificate is%R%
-    echo   %WH%trusted, and everything is set to start on login.%R%
-    echo.
+    echo   %GR%%B%!G_OK! SETUP COMPLETE%R%
+    echo   %SL%QZ Tray is installed and ready to print%R%
+) else (
+    echo   %AM%%B%!G_WARN! FINISHED WITH WARNINGS%R%
+    echo   %SL%QZ Tray didn't stay running after setup%R%
+)
+echo   %DGR%!RULE!%R%
+echo.
+
+set "MSG=SUMMARY"
+call :ui_card_top
+set "ROW_K=Version    "
+set "ROW_V=!QZ_NUM!"
+call :ui_row
+set "ROW_K=Location   "
+set "ROW_V=%QZ_INSTALL_DIR%"
+call :ui_row
+set "ROW_K=Certificate"
+if "!REGISTER_OK!"=="1" (set "ROW_V=trusted") else (set "ROW_V=not confirmed - retry this installer")
+call :ui_row
+set "ROW_K=Auto-start "
+if "!STARTUP_OK!"=="1" (set "ROW_V=on login") else (set "ROW_V=not set - launch QZ Tray manually")
+call :ui_row
+set "ROW_K=Status     "
+if "!RUNNING!"=="1" (set "ROW_V=running") else (set "ROW_V=not confirmed")
+call :ui_row
+call :ui_card_end
+echo.
+
+if "!FINAL_STATE!"=="OK" (
     echo   %WH%Printing will now run without any popups or prompts.%R%
     echo.
     echo   %SL%Verify: right-click the QZ Tray tray icon, then%R%
     echo   %SL%        Advanced  -^>  Site Manager%R%
-    echo.
 ) else (
-    cls
-    echo.
-    echo   %AM%%B%============================================================%R%
-    echo.
-    echo   %PU%%B%.d8888b.                    888                        %R%
-    echo   %PU%%B%d88P  Y88b                  888                        %R%
-    echo   %PU%%B%888    888                  888                        %R%
-    echo   %PU%%B%888        888d888  8888b.  88888b.  888  888  .d88b.  %R%
-    echo   %PU%%B%888  88888 888P"       "88b 888 "88b 888  888 d88""88b %R%
-    echo   %PU%%B%888    888 888     .d888888 888  888 Y88  88P 888  888 %R%
-    echo   %PU%%B%Y88b  d88P 888     888  888 888 d88P  Y8bd8P  Y88..88P %R%
-    echo   %PU%%B% "Y8888P88 888     "Y888888 88888P"    Y88P    "Y88P"  %R%
-    echo.
-    echo   %AM%%B%              FINISHED WITH WARNINGS%R%
-    echo   %SL%        QZ Tray didn't stay running after startup%R%
-    echo.
-    echo   %AM%%B%============================================================%R%
-    echo.
     echo   %WH%QZ Tray was installed and the certificate was registered,%R%
     echo   %WH%but QZ Tray didn't stay running after it was started.%R%
     echo.
@@ -527,14 +729,13 @@ if "!FINAL_STATE!"=="OK" (
     echo   %SL%  2. Right-click the tray icon, then Advanced - Site Manager%R%
     echo   %SL%     - confirm Grabvo is listed%R%
     echo   %SL%  3. If it isn't, run this installer again%R%
-    echo.
 )
+echo.
 exit /b 0
 
 :cleanup
 cd /d "%TEMP%" >nul 2>&1
 rd /s /q "%TEMP_DIR%" >nul 2>&1
-echo.
 pause
 endlocal
 exit /b 0

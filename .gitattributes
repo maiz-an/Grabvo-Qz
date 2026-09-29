@@ -1,0 +1,7 @@
+# Line endings are functionally significant for the installer scripts in
+# public/: a .cmd file with a bare LF can behave oddly under cmd.exe, and
+# a .sh file with a CRLF shebang line fails outright on Linux/macOS
+# ("bad interpreter"). Force both regardless of core.autocrlf, so a
+# Windows checkout can't silently reintroduce the wrong ending.
+*.cmd text eol=crlf
+*.sh  text eol=lf

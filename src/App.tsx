@@ -208,6 +208,16 @@ export default function App() {
   /* ---------- iOS segmented-control index ---------- */
   const activeIndex = TABS.findIndex((t) => t.id === activeTab);
 
+  /* ---------- Printers tab attention dot ----------
+     Surfaces in the tab bar itself when something there needs the
+     user's attention: QZ Tray unreachable, or connected but a printer
+     still isn't assigned. Cleared once everything's wired up. */
+  const printersNeedAttention =
+    status === "error" ||
+    (status === "connected" && (!receiptPrinter || !ticketPrinter));
+
+  const goToPrinters = useCallback(() => setActiveTab("printers"), []);
+
   return (
     <>
       {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
@@ -234,7 +244,14 @@ export default function App() {
           as one unit, header included, exactly like the original layout.
           ================================================================== */}
       <div className="relative z-[2] mx-auto max-w-[820px] px-4 pb-16 pt-12 sm:px-6 sm:pt-16">
-        <Header />
+        <Header
+          status={status}
+          connectionMode={connectionMode}
+          printerCount={printers.length}
+          receiptPrinter={receiptPrinter}
+          ticketPrinter={ticketPrinter}
+          onGoToPrinters={goToPrinters}
+        />
 
         {/* iOS-style segmented control */}
         <div
@@ -268,12 +285,20 @@ export default function App() {
                     : "text-slate-500 hover:text-slate-700"
                 }`}
               >
-                <i
-                  className={`fa-solid ${tab.icon} text-[12px] transition-colors duration-300 ${
-                    isActive ? "text-violet-600" : "text-slate-400"
-                  }`}
-                  aria-hidden="true"
-                />
+                <span className="relative inline-flex">
+                  <i
+                    className={`fa-solid ${tab.icon} text-[12px] transition-colors duration-300 ${
+                      isActive ? "text-violet-600" : "text-slate-400"
+                    }`}
+                    aria-hidden="true"
+                  />
+                  {tab.id === "printers" && printersNeedAttention && (
+                    <span
+                      className="absolute -right-1.5 -top-1.5 h-1.5 w-1.5 rounded-full bg-red-500 ring-2 ring-slate-100"
+                      aria-hidden="true"
+                    />
+                  )}
+                </span>
                 {tab.label}
               </button>
             );
