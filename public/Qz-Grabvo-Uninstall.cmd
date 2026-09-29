@@ -347,7 +347,7 @@ set "FONTFIX_PS1=%TEMP%\grabvo_fontfix_%RANDOM%.ps1"
     echo         info.FontWeight = 400;
     echo         info.FontName = "Consolas";
     echo         info.dwFontSize.X = 0;
-    echo         info.dwFontSize.Y = 14;
+    echo         info.dwFontSize.Y = 12;
     echo         SetCurrentConsoleFontEx^(h, false, ref info^);
     echo     }
     echo }
