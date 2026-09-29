@@ -127,6 +127,69 @@ function Step({ n, children }: StepProps) {
   );
 }
 
+/* -------------------------------------------------------------------------
+   Print Agent (GrabvoPrintPing) install block — shown under every OS's
+   own QZ Tray setup instructions above. Optional: only needed for the
+   new "Print Agent" connection mode (phones/tablets with no local QZ
+   Tray). Direct QZ Tray setup above this is unaffected either way.
+   ------------------------------------------------------------------------- */
+function PrintAgentSection({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+      <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-900">
+        <i className="fa-solid fa-route text-violet-600" aria-hidden="true" />
+        Optional: Print Agent (for phones/tablets)
+      </div>
+      <p className="mb-3 text-[12.5px] leading-relaxed text-slate-500">
+        Only needed if you want to print from a phone or tablet that has no
+        QZ Tray of its own — install this on the Windows PC (or a small
+        print box) that already has QZ Tray, then switch the web app's
+        Connection mode to <b className="text-slate-900">Print Agent</b> on
+        the device you're printing from.
+      </p>
+      <div className="space-y-3">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * One-line shell command with a copy button — used for the macOS/Linux
+ * Print Agent install command, matching the muted "code" styling used
+ * elsewhere on this page (the "qz.grabvo.app" callout above).
+ */
+function CopyCommand({ command }: { command: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(command);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard blocked — the command is still selectable/visible */
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5">
+      <code className="min-w-0 flex-1 overflow-x-auto whitespace-pre text-[11.5px] text-slate-600">
+        {command}
+      </code>
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="flex-none rounded-xl px-2.5 py-1.5 text-[11px] font-bold text-violet-600 transition-colors duration-150 hover:bg-violet-50"
+      >
+        <i
+          className={`fa-solid ${copied ? "fa-check" : "fa-copy"}`}
+          aria-hidden="true"
+        />{" "}
+        {copied ? "Copied" : "Copy"}
+      </button>
+    </div>
+  );
+}
+
 export function SetupPanel() {
   /* Detected OS is stored separately from the currently-viewed OS, so if
      the user overrides the choice we can still show an "Auto" reset. */
@@ -248,6 +311,24 @@ function WindowsSetup() {
           .
         </span>
       </div>
+
+      <PrintAgentSection>
+        <a
+          href="./GrabvoPrintPing-Setup.cmd"
+          download="GrabvoPrintPing-Setup.cmd"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 bg-white px-5 py-3 text-[13px] font-bold text-slate-700 transition-all duration-300 hover:bg-slate-50 active:scale-95 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
+        >
+          <i className="fa-solid fa-download" aria-hidden="true" />
+          Download GrabvoPrintPing-Setup.cmd
+        </a>
+        <p className="text-[12px] leading-relaxed text-slate-500">
+          Run it the same way as above (right-click →{" "}
+          <b className="text-slate-900">Run as administrator</b>). It
+          installs Node.js if needed, downloads and builds the agent, opens
+          the firewall port, and registers it as an auto-starting Windows
+          Service — nothing to type.
+        </p>
+      </PrintAgentSection>
     </div>
   );
 }
@@ -293,6 +374,15 @@ function MacSetup() {
           .
         </span>
       </div>
+
+      <PrintAgentSection>
+        <CopyCommand command="curl -fsSL https://qz.grabvo.app/install-grabvoprintping.sh | bash" />
+        <p className="text-[12px] leading-relaxed text-slate-500">
+          Run that in Terminal. It installs Node.js if needed (via
+          Homebrew), downloads and builds the agent, and registers it as a
+          background service that starts at login.
+        </p>
+      </PrintAgentSection>
     </div>
   );
 }
@@ -334,6 +424,15 @@ function OtherSetup() {
           .
         </span>
       </div>
+
+      <PrintAgentSection>
+        <CopyCommand command="curl -fsSL https://qz.grabvo.app/install-grabvoprintping.sh | bash" />
+        <p className="text-[12px] leading-relaxed text-slate-500">
+          Run that in a terminal. It installs Node.js if needed (via
+          apt/dnf/yum), downloads and builds the agent, and registers it as
+          a systemd service that starts at boot.
+        </p>
+      </PrintAgentSection>
     </div>
   );
 }
