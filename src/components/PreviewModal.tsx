@@ -248,7 +248,7 @@ export function PreviewModal({
       }}
     >
       {/* ============================================================
-          MODAL CARD — matches Grabvo's Card (rounded-[2rem])
+          MODAL CARD
           ============================================================ */}
       <div
         className="
@@ -257,11 +257,11 @@ export function PreviewModal({
           w-[min(520px,100%)]
           flex-col
           overflow-hidden
-          rounded-[2rem]
+          rounded-lg
           border
-          border-slate-100
+          border-slate-200
           bg-white
-          shadow-[0_24px_80px_rgba(15,23,42,.35)]
+          shadow-lg
         "
       >
         {/* ==========================================================
@@ -274,12 +274,12 @@ export function PreviewModal({
             items-center
             justify-between
             border-b
-            border-slate-100
+            border-slate-200
             bg-slate-50
             px-6
             py-4
             text-[13px]
-            font-bold
+            font-semibold
             text-slate-900
           "
         >
@@ -291,7 +291,7 @@ export function PreviewModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-bold text-slate-500 transition-all duration-300 hover:border-violet-200 hover:text-violet-600 focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-500 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-violet-500"
           >
             <i className="fa-solid fa-xmark" aria-hidden="true" /> Close
           </button>
@@ -305,8 +305,8 @@ export function PreviewModal({
             live iframe below renders with no badge at all.
             ========================================================== */}
         {canSimulate && (
-          <div className="flex flex-none justify-center border-b border-slate-100 bg-white px-6 py-2.5">
-            <span className="rounded-lg bg-violet-600 px-3 py-1 text-[11px] font-bold text-white">
+          <div className="flex flex-none justify-center border-b border-slate-200 bg-white px-6 py-2.5">
+            <span className="rounded bg-slate-900 px-3 py-1 text-[11px] font-medium text-white">
               Exact print (ESC/POS)
             </span>
           </div>
@@ -328,10 +328,6 @@ export function PreviewModal({
             items-start
             justify-center
           "
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 50% 0%, rgba(124,58,237,.08), transparent 60%)",
-          }}
         >
           {/* ========================================================
               LOADING PLACEHOLDER — uses shared shimmer wash
@@ -348,10 +344,12 @@ export function PreviewModal({
                 h-[520px]
                 flex-col
                 gap-3
-                rounded-2xl
+                rounded-lg
+                border
+                border-slate-200
                 bg-white
                 p-5
-                shadow-[0_18px_50px_rgba(15,23,42,.18)]
+                shadow-sm
               "
               style={{
                 width: `${widthMm}mm`,
@@ -391,9 +389,11 @@ export function PreviewModal({
               mx-auto
               block
               flex-none
-              rounded-2xl
+              rounded-lg
+              border
+              border-slate-200
               bg-white
-              shadow-[0_3px_8px_rgba(15,23,42,.18)]
+              shadow-sm
             "
             style={{
               display: view === "live" ? "block" : "none",
@@ -414,7 +414,7 @@ export function PreviewModal({
               ======================================================== */}
           {view === "exact" && (
             <div
-              className="mx-auto flex flex-none justify-center rounded-2xl bg-white shadow-[0_3px_8px_rgba(15,23,42,.18)]"
+              className="mx-auto flex flex-none justify-center rounded-lg border border-slate-200 bg-white shadow-sm"
               style={{ width: `${widthMm}mm`, minWidth: 260, maxWidth: "100%" }}
             >
               {simLoading && (

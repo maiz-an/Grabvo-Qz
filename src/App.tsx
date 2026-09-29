@@ -253,20 +253,20 @@ export default function App() {
           onGoToPrinters={goToPrinters}
         />
 
-        {/* iOS-style segmented control */}
+        {/* Segmented tab control — flat, solid active state, no motion */}
         <div
-          className="relative mb-6 flex rounded-2xl bg-slate-100 p-1.5"
+          className="relative mb-6 flex rounded-md border border-slate-200 p-1"
           role="tablist"
           aria-label="App sections"
         >
-          {/* Sliding pill — sits behind the buttons (z-0), buttons sit at z-10 */}
+          {/* Sliding indicator — sits behind the buttons (z-0), buttons sit at z-10 */}
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute top-1.5 bottom-1.5 left-1.5 z-0 rounded-xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.08),0_2px_6px_rgba(15,23,42,0.06)]"
+            className="pointer-events-none absolute top-1 bottom-1 left-1 z-0 rounded bg-slate-900"
             style={{
-              width: `calc((100% - 0.75rem) / ${TABS.length})`,
+              width: `calc((100% - 0.5rem) / ${TABS.length})`,
               transform: `translateX(${activeIndex * 100}%)`,
-              transition: "transform 340ms cubic-bezier(0.32, 0.72, 0, 1)",
+              transition: "transform 200ms ease-out",
             }}
           />
 
@@ -279,16 +279,16 @@ export default function App() {
                 role="tab"
                 aria-selected={isActive}
                 onClick={() => setActiveTab(tab.id)}
-                className={`relative z-10 inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-bold transition-colors duration-300 active:scale-[0.97] ${
+                className={`relative z-10 inline-flex flex-1 items-center justify-center gap-2 rounded px-4 py-2 text-[13px] font-medium ${
                   isActive
-                    ? "text-slate-900"
+                    ? "text-white"
                     : "text-slate-500 hover:text-slate-700"
                 }`}
               >
                 <span className="relative inline-flex">
                   <i
-                    className={`fa-solid ${tab.icon} text-[12px] transition-colors duration-300 ${
-                      isActive ? "text-violet-600" : "text-slate-400"
+                    className={`fa-solid ${tab.icon} text-[12px] ${
+                      isActive ? "text-white" : "text-slate-400"
                     }`}
                     aria-hidden="true"
                   />
@@ -341,18 +341,7 @@ export default function App() {
               onModeChange={handleConnectionModeChange}
               onAgentUrlChange={handleAgentUrlChange}
             />
-            <Card
-              padding="none"
-              // Same light-shadow override used by PrintCards / PrinterPanel /
-              // SetupPanel, so every card in the app reads with the same
-              // weight. The `!` is what lets this override Card's own default
-              // shadow without touching Card.tsx.
-              className="
-                p-5
-                !shadow-[0_1px_3px_rgba(15,23,42,0.03)]
-                hover:!shadow-[0_2px_6px_rgba(15,23,42,0.05)]
-              "
-            >
+            <Card padding="none" className="p-5">
               <ActionButtons
                 connecting={connecting}
                 refreshing={refreshing}

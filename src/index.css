@@ -83,17 +83,6 @@ body::-webkit-scrollbar,
 }
 
 /* ================================================================
-   Live-status pulsing dot
-   ================================================================ */
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-.animate-pulse-dot {
-  animation: pulse 1.6s ease-in-out infinite;
-}
-
-/* ================================================================
    Spinners
    ================================================================ */
 @keyframes spin {
@@ -131,25 +120,6 @@ body::-webkit-scrollbar,
 
 .skeleton-bar {
   height: 10px;
-}
-
-/* ================================================================
-   Ambient floating background blobs — toned WAY down.
-   ================================================================ */
-@keyframes blob1 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(28px, -22px) scale(1.06); }
-  66% { transform: translate(-18px, 18px) scale(0.97); }
-}
-@keyframes blob2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(-28px, 28px) scale(1.04); }
-}
-.animate-blob-1 {
-  animation: blob1 22s ease-in-out infinite;
-}
-.animate-blob-2 {
-  animation: blob2 26s ease-in-out infinite;
 }
 
 /* ================================================================

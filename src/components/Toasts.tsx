@@ -94,7 +94,7 @@ export function Toasts({ toasts, onDismiss }: Props) {
             {/* Body */}
             <div className="min-w-0 flex-1">
               {t.title && (
-                <p className="text-sm font-black text-black tracking-tight">
+                <p className="text-sm font-semibold text-slate-900">
                   {t.title}
                 </p>
               )}

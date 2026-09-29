@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul 2>&1
 setlocal EnableExtensions EnableDelayedExpansion
 title Grabvo - QZ Tray Setup
 
@@ -12,8 +13,11 @@ title Grabvo - QZ Tray Setup
 ::   UI conventions borrowed from LinkCatty (github.com/maiz-an/LinkCatty):
 ::   real glyphs decoded from hex at runtime (certutil), a live spinner +
 ::   progress bar for downloads/waits, and a boxed summary card at the end.
-::   The file itself stays pure ASCII with CRLF endings either way - no
-::   chcp needed, no encoding issues.
+::   The file itself is pure ASCII with CRLF endings (see .gitattributes),
+::   but it PRINTS real UTF-8 glyphs, so the console's code page has to be
+::   switched to UTF-8 (chcp 65001) before anything is echoed - without
+::   it, a real console window (not a redirected/piped one) renders those
+::   bytes as mojibake using the old OEM code page.
 :: =========================================================================
 
 :: -------------------------------------------------------------------------

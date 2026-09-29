@@ -2,14 +2,6 @@ import React from "react";
 import type { ConnectionMode } from "@/lib/storage";
 import Card from "./Card";
 
-/**
- * Same lighter shadow override every card in the Printers tab uses
- * (ActionButtons' Card, PrinterPanel), so this reads as one panel with
- * them rather than a new visual system.
- */
-const CARD_CLASS =
-  "!shadow-[0_1px_3px_rgba(15,23,42,0.03)] hover:!shadow-[0_2px_6px_rgba(15,23,42,0.05)]";
-
 const MODE_LABELS: Record<ConnectionMode, string> = {
   direct: "Direct QZ Tray",
   agent: "Print Agent",
@@ -38,15 +30,15 @@ export function ConnectionModePanel({
   onAgentUrlChange,
 }: Props) {
   return (
-    <Card padding="none" className={`flex flex-col gap-4 p-6 ${CARD_CLASS}`}>
+    <Card padding="none" className="flex flex-col gap-4 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-[13px] font-bold text-slate-900">
+        <div className="flex items-center gap-2 text-[13px] font-semibold text-slate-900">
           <i className="fa-solid fa-route" aria-hidden="true" />
           Connection mode
         </div>
 
         <div
-          className="flex items-center gap-0.5 rounded-full bg-slate-100 p-0.5"
+          className="flex items-center gap-0.5 rounded-md border border-slate-200 p-0.5"
           role="tablist"
           aria-label="Connection mode"
         >
@@ -59,9 +51,9 @@ export function ConnectionModePanel({
                 role="tab"
                 aria-selected={isActive}
                 onClick={() => onModeChange(m)}
-                className={`rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.06em] transition-all duration-200 ${
+                className={`rounded px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] ${
                   isActive
-                    ? "bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
+                    ? "bg-slate-900 text-white"
                     : "text-slate-500 hover:text-slate-700"
                 }`}
               >
@@ -83,7 +75,7 @@ export function ConnectionModePanel({
         <div className="flex flex-col gap-2">
           <label
             htmlFor="agent-url"
-            className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500"
+            className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500"
           >
             Print Agent URL
           </label>
@@ -97,11 +89,9 @@ export function ConnectionModePanel({
             value={agentUrl}
             onChange={(e) => onAgentUrlChange(e.target.value)}
             className="
-              w-full rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3.5
+              w-full rounded-md border border-slate-200 bg-white px-3.5 py-3
               text-[13px] font-medium text-slate-900 placeholder:text-slate-400
-              transition-all duration-200
-              hover:border-slate-200 hover:bg-white
-              focus:border-violet-200 focus:bg-white focus:outline-none focus:ring-4 focus:ring-violet-500/10
+              focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-400
             "
           />
           <p className="text-[12px] leading-relaxed text-slate-500">

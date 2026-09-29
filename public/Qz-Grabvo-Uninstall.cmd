@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul 2>&1
 setlocal EnableExtensions EnableDelayedExpansion
 title Grabvo - QZ Tray Uninstaller
 
@@ -11,7 +12,9 @@ title Grabvo - QZ Tray Uninstaller
 ::
 ::   UI conventions match Qz-Grabvo.cmd - see that file for the source
 ::   of the glyph/spinner/bar toolkit (borrowed from LinkCatty,
-::   github.com/maiz-an/LinkCatty). Pure ASCII on disk, CRLF endings.
+::   github.com/maiz-an/LinkCatty). Pure ASCII on disk, CRLF endings, but
+::   chcp 65001 is required up front since it PRINTS real UTF-8 glyphs -
+::   without it a real console window shows mojibake (OEM code page).
 :: =========================================================================
 
 :: -------------------------------------------------------------------------

@@ -30,7 +30,7 @@ export function Header({
   return (
     <header className="mb-8">
       {/* Kicker — matches admin's uppercase tracked label */}
-      <p className="mb-3 text-[10px] font-black uppercase tracking-[0.28em] text-violet-600">
+      <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-600">
         Print Setup &amp; Preview
       </p>
 

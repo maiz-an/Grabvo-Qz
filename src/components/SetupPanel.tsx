@@ -4,14 +4,6 @@ import Card from "./Card";
 type OS = "windows" | "mac" | "other";
 
 /**
- * The base Card's shadow is tuned for the admin dashboard's dense layout.
- * On this single-column print app the panels should read lighter — same
- * override the print cards use.
- */
-const CARD_CLASS =
-  "!shadow-[0_1px_3px_rgba(15,23,42,0.03)] hover:!shadow-[0_2px_6px_rgba(15,23,42,0.05)]";
-
-/**
  * Detects the user's operating system from the User-Agent + platform.
  * Falls back to "other" if we can't tell — never throws, always returns
  * a value, so the UI always has something to render.
@@ -66,7 +58,7 @@ function clearOverride() {
 }
 
 /* -------------------------------------------------------------------------
-   Tiny OS segmented control — 3 pills, iOS-style
+   Tiny OS segmented control — flat, solid active state, no motion
    ------------------------------------------------------------------------- */
 const OS_LABELS: Record<OS, string> = {
   windows: "Windows",
@@ -82,7 +74,7 @@ interface OsSwitcherProps {
 function OsSwitcher({ value, onChange }: OsSwitcherProps) {
   return (
     <div
-      className="flex items-center gap-0.5 rounded-full bg-slate-100 p-0.5"
+      className="flex items-center gap-0.5 rounded-md border border-slate-200 p-0.5"
       role="tablist"
       aria-label="Switch operating system"
     >
@@ -95,9 +87,9 @@ function OsSwitcher({ value, onChange }: OsSwitcherProps) {
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(os)}
-            className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] transition-all duration-200 ${
+            className={`rounded px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.06em] ${
               isActive
-                ? "bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
+                ? "bg-slate-900 text-white"
                 : "text-slate-500 hover:text-slate-700"
             }`}
           >
@@ -117,7 +109,7 @@ interface StepProps {
 function Step({ n, children }: StepProps) {
   return (
     <li className="flex items-start gap-3">
-      <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-full bg-violet-600 text-[11px] font-black text-white">
+      <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-slate-900 text-[11px] font-semibold text-white">
         {n}
       </span>
       <span className="pt-0.5 text-[12.5px] leading-relaxed text-slate-600">
@@ -135,9 +127,9 @@ function Step({ n, children }: StepProps) {
    ------------------------------------------------------------------------- */
 function PrintAgentSection({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-      <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-900">
-        <i className="fa-solid fa-route text-violet-600" aria-hidden="true" />
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+      <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-900">
+        <i className="fa-solid fa-route text-slate-500" aria-hidden="true" />
         Optional: Print Agent (for phones/tablets)
       </div>
       <p className="mb-3 text-[12.5px] leading-relaxed text-slate-500">
@@ -171,14 +163,14 @@ function CopyCommand({ command }: { command: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5">
+    <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3.5 py-2.5">
       <code className="min-w-0 flex-1 overflow-x-auto whitespace-pre text-[11.5px] text-slate-600">
         {command}
       </code>
       <button
         type="button"
         onClick={handleCopy}
-        className="flex-none rounded-xl px-2.5 py-1.5 text-[11px] font-bold text-violet-600 transition-colors duration-150 hover:bg-violet-50"
+        className="flex-none rounded px-2.5 py-1.5 text-[11px] font-semibold text-violet-600 hover:bg-slate-50"
       >
         <i
           className={`fa-solid ${copied ? "fa-check" : "fa-copy"}`}
@@ -224,11 +216,11 @@ export function SetupPanel() {
   };
 
   return (
-    <Card padding="none" className={`px-6 py-5 ${CARD_CLASS}`}>
+    <Card padding="none" className="px-6 py-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-[13px] font-bold text-slate-900">
+        <div className="flex items-center gap-2 text-[13px] font-semibold text-slate-900">
           <i
-            className="fa-solid fa-shield-halved text-violet-600"
+            className="fa-solid fa-shield-halved text-slate-500"
             aria-hidden="true"
           />
           Enable silent printing
@@ -262,14 +254,14 @@ function WindowsSetup() {
       <a
         href="./Qz-Grabvo.cmd"
         download="Qz-Grabvo.cmd"
-        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 py-3 text-[13px] font-bold text-white shadow-lg shadow-violet-100 transition-all duration-300 hover:bg-violet-700 active:scale-95 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
+        className="inline-flex items-center justify-center gap-2 rounded-md bg-violet-600 px-5 py-3 text-[13px] font-semibold text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
       >
         <i className="fa-solid fa-download" aria-hidden="true" />
         Download Qz-Grabvo.cmd
       </a>
 
-      <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-        <div className="mb-3 text-[11px] font-black uppercase tracking-[0.18em] text-slate-900">
+      <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+        <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-900">
           How to run it
         </div>
         <ol className="space-y-3">
@@ -296,9 +288,9 @@ function WindowsSetup() {
         </ol>
       </div>
 
-      <div className="flex items-start gap-2 rounded-2xl border border-slate-100 bg-white p-3.5 text-[11.5px] leading-relaxed text-slate-400">
+      <div className="flex items-start gap-2 rounded-md border border-slate-200 bg-white p-3.5 text-[11.5px] leading-relaxed text-slate-400">
         <i
-          className="fa-solid fa-circle-info mt-0.5 text-violet-400"
+          className="fa-solid fa-circle-info mt-0.5 text-slate-400"
           aria-hidden="true"
         />
         <span>
@@ -316,7 +308,7 @@ function WindowsSetup() {
         <a
           href="./GrabvoPrintPing-Setup.cmd"
           download="GrabvoPrintPing-Setup.cmd"
-          className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 bg-white px-5 py-3 text-[13px] font-bold text-slate-700 transition-all duration-300 hover:bg-slate-50 active:scale-95 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
+          className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-5 py-3 text-[13px] font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
         >
           <i className="fa-solid fa-download" aria-hidden="true" />
           Download GrabvoPrintPing-Setup.cmd
@@ -339,12 +331,12 @@ function WindowsSetup() {
 function MacSetup() {
   return (
     <div className="space-y-4">
-      <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center">
-        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-400 ring-1 ring-slate-200">
+      <div className="flex flex-col items-center gap-4 rounded-md border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+        <span className="flex h-12 w-12 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-400">
           <i className="fa-brands fa-apple text-[22px]" aria-hidden="true" />
         </span>
         <div>
-          <p className="text-[14px] font-bold text-slate-900">
+          <p className="text-[14px] font-semibold text-slate-900">
             macOS setup - coming soon
           </p>
           <p className="mx-auto mt-1 max-w-[40ch] text-[12.5px] leading-relaxed text-slate-500">
@@ -355,9 +347,9 @@ function MacSetup() {
         </div>
       </div>
 
-      <div className="flex items-start gap-2 rounded-2xl border border-slate-100 bg-white p-3.5 text-[11.5px] leading-relaxed text-slate-400">
+      <div className="flex items-start gap-2 rounded-md border border-slate-200 bg-white p-3.5 text-[11.5px] leading-relaxed text-slate-400">
         <i
-          className="fa-solid fa-circle-info mt-0.5 text-violet-400"
+          className="fa-solid fa-circle-info mt-0.5 text-slate-400"
           aria-hidden="true"
         />
         <span>
@@ -393,12 +385,12 @@ function MacSetup() {
 function OtherSetup() {
   return (
     <div className="space-y-4">
-      <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center">
-        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-400 ring-1 ring-slate-200">
+      <div className="flex flex-col items-center gap-4 rounded-md border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+        <span className="flex h-12 w-12 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-400">
           <i className="fa-solid fa-laptop text-[20px]" aria-hidden="true" />
         </span>
         <div>
-          <p className="text-[14px] font-bold text-slate-900">
+          <p className="text-[14px] font-semibold text-slate-900">
             Automated setup not available for this OS
           </p>
           <p className="mx-auto mt-1 max-w-[40ch] text-[12.5px] leading-relaxed text-slate-500">
@@ -408,9 +400,9 @@ function OtherSetup() {
         </div>
       </div>
 
-      <div className="flex items-start gap-2 rounded-2xl border border-slate-100 bg-white p-3.5 text-[11.5px] leading-relaxed text-slate-400">
+      <div className="flex items-start gap-2 rounded-md border border-slate-200 bg-white p-3.5 text-[11.5px] leading-relaxed text-slate-400">
         <i
-          className="fa-solid fa-circle-info mt-0.5 text-violet-400"
+          className="fa-solid fa-circle-info mt-0.5 text-slate-400"
           aria-hidden="true"
         />
         <span>

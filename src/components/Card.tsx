@@ -14,15 +14,15 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
         children,
         ...props
     }, ref) => {
-        const baseStyles = 'rounded-[2rem] transition-all duration-500 overflow-hidden';
+        const baseStyles = 'rounded-lg overflow-hidden';
 
         const variants = {
-            default: 'bg-white border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]',
-            flat: 'bg-slate-50 border border-slate-100',
-            glass: 'bg-white/70 backdrop-blur-xl border border-white shadow-sm',
-            success: 'bg-emerald-50 border border-emerald-100',
-            warning: 'bg-amber-50 border border-amber-100',
-            error: 'bg-red-50 border border-red-100',
+            default: 'bg-white border border-slate-200',
+            flat: 'bg-slate-50 border border-slate-200',
+            glass: 'bg-white/80 backdrop-blur-md border border-slate-200',
+            success: 'bg-emerald-50 border border-emerald-200',
+            warning: 'bg-amber-50 border border-amber-200',
+            error: 'bg-red-50 border border-red-200',
         };
 
         const paddings = {

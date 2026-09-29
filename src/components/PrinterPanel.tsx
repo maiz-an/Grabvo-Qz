@@ -5,15 +5,6 @@ import { LoadingNote, SkeletonBar } from "./ui";
 import Card from "./Card";
 
 /**
- * The base Card's shadow is tuned for the admin dashboard's dense layout.
- * On this single-column print app the panels should read lighter - same
- * override the print cards use, applied to every Card in this file so the
- * Printers tab matches the Print tab visually.
- */
-const CARD_CLASS =
-  "!shadow-[0_1px_3px_rgba(15,23,42,0.03)] hover:!shadow-[0_2px_6px_rgba(15,23,42,0.05)]";
-
-/**
  * Card override for the dropdowns panel only.
  *
  * Card.tsx ships with `overflow-hidden` (so its rounded corners clip
@@ -27,9 +18,7 @@ const CARD_CLASS =
  * Card that comes before it in the DOM, so when a dropdown opens it
  * paints on top of any stacked content.
  */
-const DROPDOWN_CARD_CLASS =
-  "!overflow-visible relative z-20 " +
-  "!shadow-[0_1px_3px_rgba(15,23,42,0.03)] hover:!shadow-[0_2px_6px_rgba(15,23,42,0.05)]";
+const DROPDOWN_CARD_CLASS = "!overflow-visible relative z-20";
 
 interface Props {
   status: QzStatus;
@@ -51,10 +40,7 @@ export function PrinterPanel({
   /* ---------- loading ---------- */
   if (status === "connecting" || status === "idle") {
     return (
-      <Card
-        padding="none"
-        className={`flex flex-col gap-4 p-6 ${CARD_CLASS}`}
-      >
+      <Card padding="none" className="flex flex-col gap-4 p-6">
         <LoadingNote />
         <div className="flex flex-col gap-4">
           <SkeletonRow />
@@ -68,12 +54,9 @@ export function PrinterPanel({
   if (status === "error" || printers.length === 0) {
     const isNotRunning = /not running/i.test(errorMessage);
     return (
-      <Card
-        padding="none"
-        className={`flex flex-col gap-3 p-6 ${CARD_CLASS}`}
-      >
+      <Card padding="none" className="flex flex-col gap-3 p-6">
         <div className="flex items-start gap-3 text-[13px] leading-relaxed text-slate-500">
-          <span className="flex h-9 w-9 flex-none items-center justify-center rounded-2xl bg-amber-50 text-amber-500">
+          <span className="flex h-9 w-9 flex-none items-center justify-center rounded-md bg-amber-50 text-amber-500">
             <i className="fa-solid fa-circle-exclamation" aria-hidden="true" />
           </span>
           <span className="pt-1">
@@ -107,8 +90,8 @@ export function PrinterPanel({
   return (
     <Card padding="none" className={`flex flex-col gap-4 p-6 ${DROPDOWN_CARD_CLASS}`}>
       {/* Saved-printer reminder */}
-      <div className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3.5 text-[12.5px] leading-relaxed text-slate-500">
-        <span className="flex h-8 w-8 flex-none items-center justify-center rounded-2xl bg-white text-violet-600 ring-1 ring-slate-200">
+      <div className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 p-3.5 text-[12.5px] leading-relaxed text-slate-500">
+        <span className="flex h-8 w-8 flex-none items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500">
           <i className="fa-solid fa-floppy-disk" aria-hidden="true" />
         </span>
         <span className="pt-1">
@@ -141,8 +124,8 @@ export function PrinterPanel({
 function SkeletonRow() {
   return (
     <div className="flex flex-col gap-2">
-      <SkeletonBar className="!h-2.5 !w-[90px]" rounded="rounded-full" />
-      <SkeletonBar className="!h-[52px] !w-full" rounded="rounded-2xl" />
+      <SkeletonBar className="!h-2.5 !w-[90px]" rounded="rounded" />
+      <SkeletonBar className="!h-[52px] !w-full" rounded="rounded-md" />
     </div>
   );
 }
@@ -238,7 +221,7 @@ function SelectRow({ id, label, value, options, onChange }: SelectRowProps) {
     >
       <label
         htmlFor={id}
-        className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500"
+        className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500"
       >
         {label}
       </label>
@@ -255,13 +238,13 @@ function SelectRow({ id, label, value, options, onChange }: SelectRowProps) {
           onKeyDown={onKeyDown}
           className={`
             flex w-full items-center gap-3
-            rounded-2xl border py-3.5 pl-4 pr-11
+            rounded-md border py-3 pl-3.5 pr-11
             text-left text-[13px] font-medium
-            transition-all duration-200
+            transition-colors duration-150
             ${
               open
-                ? "border-violet-200 bg-white text-slate-900 ring-4 ring-violet-500/10"
-                : "border-slate-100 bg-slate-50 text-slate-900 hover:border-slate-200 hover:bg-white"
+                ? "border-violet-400 bg-white text-slate-900"
+                : "border-slate-200 bg-white text-slate-900 hover:border-slate-300"
             }
             focus:outline-none
           `}
@@ -305,11 +288,10 @@ function SelectRow({ id, label, value, options, onChange }: SelectRowProps) {
             role="listbox"
             aria-label={label}
             className="
-              absolute left-0 right-0 top-[calc(100%+6px)] z-30
+              absolute left-0 right-0 top-[calc(100%+4px)] z-30
               max-h-64 overflow-y-auto
-              rounded-2xl border border-slate-100 bg-white p-1.5
-              shadow-[0_10px_30px_-8px_rgba(15,23,42,0.22),0_2px_6px_-2px_rgba(15,23,42,0.08)]
-              animate-[fadeIn_160ms_ease-out_forwards]
+              rounded-md border border-slate-200 bg-white p-1
+              shadow-sm
             "
           >
             {options.map((name, i) => {
@@ -325,11 +307,10 @@ function SelectRow({ id, label, value, options, onChange }: SelectRowProps) {
                   onClick={() => commit(name)}
                   className={`
                     flex w-full items-center gap-3
-                    rounded-xl px-3 py-2.5 text-left text-[13px]
-                    transition-colors duration-100
+                    rounded px-3 py-2.5 text-left text-[13px]
                     ${
                       active
-                        ? "bg-violet-50 text-violet-700"
+                        ? "bg-slate-100 text-slate-900"
                         : "text-slate-700"
                     }
                   `}
@@ -368,15 +349,15 @@ function SelectRow({ id, label, value, options, onChange }: SelectRowProps) {
             {/* Clear option, in case the user wants to unassign */}
             {hasValue && (
               <>
-                <div className="my-1 h-px bg-slate-100" />
+                <div className="my-1 h-px bg-slate-200" />
                 <button
                   type="button"
                   role="option"
                   onClick={() => commit("")}
                   className="
-                    flex w-full items-center gap-3 rounded-xl px-3 py-2.5
+                    flex w-full items-center gap-3 rounded px-3 py-2.5
                     text-left text-[13px] font-medium text-slate-400
-                    transition-colors duration-100 hover:bg-slate-50 hover:text-slate-600
+                    hover:bg-slate-50 hover:text-slate-600
                   "
                 >
                   <span className="min-w-0 flex-1 truncate">
