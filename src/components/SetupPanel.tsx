@@ -271,18 +271,23 @@ function WindowsSetup() {
         </div>
         <ol className="space-y-3">
           <Step n={1}>
-            A <b className="text-slate-900">User Account Control</b> prompt
-            appears — click <b className="text-slate-900">Yes</b> to allow
-            it to run as administrator.
+            A window opens and starts working right away — no prompt yet.
           </Step>
           <Step n={2}>
+            Partway through (installing QZ Tray itself), a{" "}
+            <b className="text-slate-900">User Account Control</b> prompt
+            appears — click <b className="text-slate-900">Yes</b>. That's
+            the only step that needs admin access; everything else runs
+            without one.
+          </Step>
+          <Step n={3}>
             If Windows shows a blue{" "}
             <b className="text-slate-900">SmartScreen</b> warning instead,
             click <b className="text-slate-900">More info</b> →{" "}
             <b className="text-slate-900">Run anyway</b>. This is expected for
             any new script.
           </Step>
-          <Step n={3}>
+          <Step n={4}>
             Wait for the <b className="text-slate-900">SETUP COMPLETE</b>{" "}
             banner. QZ Tray restarts automatically when it&apos;s done.
           </Step>
@@ -301,7 +306,13 @@ function WindowsSetup() {
           <code className="rounded-md bg-slate-200 px-1.5 py-0.5 text-slate-600">
             qz.grabvo.app
           </code>
-          .
+          . To remove it later, paste{" "}
+          <code className="rounded-md bg-slate-200 px-1.5 py-0.5 text-slate-600">
+            curl -fsSL https://qz.grabvo.app/Qz-Grabvo-Uninstall.cmd -o
+            &quot;%TEMP%\Qz-Grabvo-Uninstall.cmd&quot; &amp;&amp;
+            &quot;%TEMP%\Qz-Grabvo-Uninstall.cmd&quot;
+          </code>{" "}
+          into Command Prompt.
         </span>
       </div>
 

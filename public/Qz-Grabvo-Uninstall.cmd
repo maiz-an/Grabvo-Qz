@@ -23,22 +23,26 @@ title Grabvo - QZ Tray Uninstaller
 reg add "HKCU\Console" /v VirtualTerminalLevel /t REG_DWORD /d 1 /f >nul 2>&1
 
 :: -------------------------------------------------------------------------
-:: 2. Self-elevate
+:: 2. No upfront elevation.
 :: -------------------------------------------------------------------------
-net session >nul 2>&1
-if %errorLevel% neq 0 (
-    echo.
-    echo   Requesting administrator privileges...
-    powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs" >nul 2>&1
-    exit /b
-)
-
+:: This used to relaunch the ENTIRE script elevated at the top, in a
+:: brand-new UAC console window, exiting the window the user was already
+:: looking at. Now this window stays unelevated and visible the whole
+:: time, and owns the UI from the first line to the last. Only the steps
+:: that genuinely need admin (removing the machine-wide auto-start entry,
+:: stopping a lingering service, clearing machine-wide cert trust data,
+:: running the real uninstaller, and - only as a rare fallback - deleting
+:: leftover Program Files folders) are elevated on their own via
+:: :elevate_run, which runs just those commands hidden and waits, without
+:: opening a visible second window. See Qz-Grabvo.cmd for the same
+:: pattern on the install side. (If this .cmd was itself launched
+:: already-elevated, Windows doesn't re-prompt for the inner elevation.)
 :: -------------------------------------------------------------------------
 :: 3. Force a TrueType console font
 :: -------------------------------------------------------------------------
-:: See the matching comment in Qz-Grabvo.cmd - a freshly-elevated console
-:: window can default to the legacy "Raster Fonts" bitmap font, which has
-:: no glyphs for the box-drawing/braille characters below.
+:: Best-effort fix for consoles that default to the legacy "Raster Fonts"
+:: bitmap font, which has no glyphs for the box-drawing/braille characters
+:: below. See the matching comment in Qz-Grabvo.cmd.
 call :ensure_truetype_font
 
 :: -------------------------------------------------------------------------
@@ -96,15 +100,14 @@ exit /b 0
 :step2
 call :header "2/7" "Removing auto-start entries"
 
+:: Only the per-user, no-admin-needed parts here. The machine-wide
+:: HKLM entry and any lingering service are cleared in step 3 instead,
+:: bundled into that step's single elevated pass.
 reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "QZ Tray" /f >nul 2>&1
-reg delete "HKLM\Software\Microsoft\Windows\CurrentVersion\Run" /v "QZ Tray" /f >nul 2>&1
 del /f /q "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\QZ Tray.lnk" >nul 2>&1
-del /f /q "%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\Startup\QZ Tray.lnk" >nul 2>&1
 schtasks /Delete /TN "QZ Tray" /F >nul 2>&1
 schtasks /Delete /TN "QZTray" /F >nul 2>&1
-net stop "QZ Tray" >nul 2>&1
-sc delete "QZ Tray" >nul 2>&1
-call :ok "Auto-start, service, and scheduled tasks cleared"
+call :ok "Auto-start entries cleared"
 exit /b 0
 
 :: =========================================================================
@@ -113,14 +116,41 @@ exit /b 0
 :step3
 call :header "3/7" "Removing QZ Tray application"
 
-if not exist "%QZ_UNINSTALLER%" (
-    call :warn "No uninstaller found - will remove folders directly"
-    exit /b 0
+:: Everything here that needs admin - the machine-wide auto-start entry,
+:: a lingering service, the machine-wide cert trust data, and running the
+:: real uninstaller itself (into Program Files) - is bundled into one
+:: hidden elevated helper via :elevate_run. This is the only point in the
+:: whole uninstall where a UAC prompt can appear, and it always runs
+:: (even if the uninstaller binary is missing) so the machine-wide
+:: cleanup still happens.
+set "UNINSTALL_HELPER=%TEMP%\grabvo_uninstall_helper_%RANDOM%.cmd"
+> "%UNINSTALL_HELPER%" (
+    echo @echo off
+    echo reg delete "HKLM\Software\Microsoft\Windows\CurrentVersion\Run" /v "QZ Tray" /f ^>nul 2^>^&1
+    echo del /f /q "%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\Startup\QZ Tray.lnk" ^>nul 2^>^&1
+    echo net stop "QZ Tray" ^>nul 2^>^&1
+    echo sc delete "QZ Tray" ^>nul 2^>^&1
+    echo if exist "%QZ_MACHINE_DATA%" rd /s /q "%QZ_MACHINE_DATA%" ^>nul 2^>^&1
+    echo if exist "%QZ_INSTALL_DIR%\override.crt" del /f /q "%QZ_INSTALL_DIR%\override.crt" ^>nul 2^>^&1
+    echo if exist "%QZ_UNINSTALLER%" ^(
+    echo     set "qz-print_silent=1"
+    echo     start "" "%QZ_UNINSTALLER%" /S
+    echo ^)
 )
 
-set "qz-print_silent=1"
-call :arrow "Running QZ Tray uninstaller"
-powershell -NoProfile -Command "Start-Process -FilePath '%QZ_UNINSTALLER%' -ArgumentList '/S' -WindowStyle Hidden" >nul 2>&1
+call :arrow "Removing QZ Tray - approve the Windows prompt if one appears"
+call :elevate_run "%UNINSTALL_HELPER%"
+set "ELEV_RESULT=!errorLevel!"
+del /f /q "%UNINSTALL_HELPER%" >nul 2>&1
+
+if "!ELEV_RESULT!"=="1223" (
+    call :warn "Administrator access was declined - some items may not be removed"
+)
+
+if not exist "%QZ_UNINSTALLER%" (
+    call :ok "No installed uninstaller found - already removed or never installed"
+    exit /b 0
+)
 
 set /a POLL=0
 set "BAR_LABEL=Waiting for uninstall"
@@ -162,9 +192,28 @@ call :header "4/7" "Cleaning up application folders"
 powershell -NoProfile -Command "!PROC_KILL!" >nul 2>&1
 timeout /t 2 /nobreak >nul 2>&1
 
-if exist "%QZ_INSTALL_DIR%" (
-    rd /s /q "%QZ_INSTALL_DIR%" >nul 2>&1
+:: The official uninstaller (run elevated in step 3) has usually already
+:: taken care of this, so try unelevated first - free, no prompt. Only
+:: escalate if something is genuinely still there, and only once.
+if exist "%QZ_INSTALL_DIR%" rd /s /q "%QZ_INSTALL_DIR%" >nul 2>&1
+if exist "%QZ_INSTALL_DIR_X86%" rd /s /q "%QZ_INSTALL_DIR_X86%" >nul 2>&1
+
+set "FOLDERS_LEFT=0"
+if exist "%QZ_INSTALL_DIR%" set "FOLDERS_LEFT=1"
+if exist "%QZ_INSTALL_DIR_X86%" set "FOLDERS_LEFT=1"
+
+if "!FOLDERS_LEFT!"=="1" (
+    set "CLEANUP_HELPER=%TEMP%\grabvo_cleanup_helper_%RANDOM%.cmd"
+    > "!CLEANUP_HELPER!" (
+        echo @echo off
+        echo if exist "%QZ_INSTALL_DIR%" rd /s /q "%QZ_INSTALL_DIR%" ^>nul 2^>^&1
+        echo if exist "%QZ_INSTALL_DIR_X86%" rd /s /q "%QZ_INSTALL_DIR_X86%" ^>nul 2^>^&1
+    )
+    call :arrow "A few files remain - approve the Windows prompt to finish removing them"
+    call :elevate_run "!CLEANUP_HELPER!"
+    del /f /q "!CLEANUP_HELPER!" >nul 2>&1
 )
+
 if exist "%QZ_INSTALL_DIR%" (
     call :warn "Could not fully remove: %QZ_INSTALL_DIR%"
 ) else (
@@ -172,10 +221,7 @@ if exist "%QZ_INSTALL_DIR%" (
 )
 
 if exist "%QZ_INSTALL_DIR_X86%" (
-    rd /s /q "%QZ_INSTALL_DIR_X86%" >nul 2>&1
-    if not exist "%QZ_INSTALL_DIR_X86%" (
-        call :ok "Removed %QZ_INSTALL_DIR_X86%"
-    )
+    call :warn "Could not fully remove: %QZ_INSTALL_DIR_X86%"
 )
 exit /b 0
 
@@ -251,6 +297,16 @@ if "!VERIFY_OK!"=="1" (
 )
 call :complete
 exit /b 0
+
+:: Runs a helper .cmd file elevated and with no visible window, waits for
+:: it to finish, and exits with its exit code. See the matching
+:: subroutine in Qz-Grabvo.cmd for the full explanation.
+:: in: %1 helper .cmd path.  out: errorlevel = the helper's exit code,
+:: or 1223 (ERROR_CANCELLED) if the UAC prompt was declined.
+:elevate_run
+set "ELEV_FILE=%~1"
+powershell -NoProfile -Command "try { $p = Start-Process -FilePath '!ELEV_FILE!' -Verb RunAs -WindowStyle Hidden -Wait -PassThru; exit $p.ExitCode } catch { exit 1223 }" >nul 2>&1
+exit /b !errorLevel!
 
 :: =========================================================================
 ::   UI (pure ASCII on disk - real glyphs decoded from hex at runtime)

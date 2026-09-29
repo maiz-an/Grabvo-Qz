@@ -26,28 +26,32 @@ title Grabvo - QZ Tray Setup
 reg add "HKCU\Console" /v VirtualTerminalLevel /t REG_DWORD /d 1 /f >nul 2>&1
 
 :: -------------------------------------------------------------------------
-:: 2. Self-elevate
+:: 2. No upfront elevation.
 :: -------------------------------------------------------------------------
-net session >nul 2>&1
-if %errorLevel% neq 0 (
-    echo.
-    echo   Requesting administrator privileges...
-    powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs" >nul 2>&1
-    exit /b
-)
-
+:: This script deliberately does NOT relaunch itself elevated at the top
+:: anymore. That used to relaunch the ENTIRE script in a brand-new UAC
+:: console window and exit the one the user was looking at - so whatever
+:: window they pasted the install command into just vanished, replaced by
+:: a second window with all the UI in it. Confusing, and the extra window
+:: is why :ensure_truetype_font existed in the first place.
+::
+:: Instead, this window keeps running unelevated the whole time and owns
+:: the UI from the first line to the last. The ONE step that genuinely
+:: needs admin - installing into Program Files (step 4) - is elevated on
+:: its own via :elevate_run, which launches just that one command hidden
+:: and waits for it, without opening a visible second window. That's the
+:: only place a UAC prompt appears. (If this .cmd was itself launched
+:: already-elevated - e.g. the user right-clicked "Run as administrator"
+:: - Windows doesn't re-prompt for the inner elevation at all.)
 :: -------------------------------------------------------------------------
 :: 3. Force a TrueType console font
 :: -------------------------------------------------------------------------
-:: A freshly-elevated console (a brand new window - the UAC prompt spawns
-:: one, it isn't the console you were just typing in) can default to the
-:: legacy "Raster Fonts" bitmap font, which has no glyphs for the
-:: box-drawing/braille characters below - they render as "?" even though
-:: chcp 65001 already has the encoding right (copy the same text out of
-:: that window and the real characters are there - font, not encoding).
-:: Registry tweaks only affect *new* console windows, not the one already
-:: open, so this calls the Win32 console API directly to fix the font of
-:: THIS window live. Best-effort: printing still works either way.
+:: Best-effort fix for consoles that default to the legacy "Raster Fonts"
+:: bitmap font, which has no glyphs for the box-drawing/braille characters
+:: below - they'd render as "?" even though chcp 65001 already has the
+:: encoding right. Registry tweaks only affect *new* console windows, not
+:: the one already open, so this calls the Win32 console API directly to
+:: fix the font of THIS window live. Printing still works either way.
 call :ensure_truetype_font
 
 :: -------------------------------------------------------------------------
@@ -173,8 +177,25 @@ call :header "4/8" "Installing QZ Tray"
 
 set "QZ_OK=0"
 
-call :arrow "Setting up QZ Tray - this may take a minute"
-powershell -NoProfile -Command "$env:qz_print_silent='1'; Start-Process -FilePath '!QZ_EXE!' -ArgumentList '/S' -WindowStyle Hidden -Wait" >nul 2>&1
+:: The installer writes into Program Files, so it's the one step in this
+:: whole script that needs admin. Its command is written to a tiny helper
+:: .cmd and run through :elevate_run, which is the only place a UAC
+:: prompt appears - this window stays unelevated and visible the whole
+:: time, before and after.
+set "INSTALL_HELPER=%TEMP%\grabvo_install_helper_%RANDOM%.cmd"
+> "!INSTALL_HELPER!" (
+    echo @echo off
+    echo set "qz-print_silent=1"
+    echo "!QZ_EXE!" /S
+)
+
+call :arrow "Setting up QZ Tray - approve the Windows prompt if one appears"
+call :elevate_run "!INSTALL_HELPER!"
+if "!errorLevel!"=="1223" (
+    del /f /q "!INSTALL_HELPER!" >nul 2>&1
+    call :fail "Administrator access was declined - installation needs it to continue"
+    goto :cleanup
+)
 
 set /a POLL=0
 set "BAR_LABEL=Waiting for install"
@@ -183,10 +204,12 @@ call :poll_install
 
 if "!QZ_OK!"=="0" (
     call :warn "First pass didn't complete - retrying once"
-    powershell -NoProfile -Command "$env:qz_print_silent='1'; Start-Process -FilePath '!QZ_EXE!' -ArgumentList '/S' -WindowStyle Hidden -Wait" >nul 2>&1
+    call :elevate_run "!INSTALL_HELPER!"
     set /a POLL=0
     call :poll_install
 )
+
+del /f /q "!INSTALL_HELPER!" >nul 2>&1
 
 if "!QZ_OK!"=="0" (
     call :fail "Install did not complete after two attempts"
@@ -316,6 +339,12 @@ if exist "%QZ_CONSOLE%" (
 :: -------------------------------------------------------------------
 :: 6b - BACKUP: override.crt in the install directory
 :: -------------------------------------------------------------------
+:: This runs unelevated on purpose - it's a backup on top of 6a (which
+:: already succeeded in the common case) and 6c/6d below, not the primary
+:: mechanism, so it isn't worth a second UAC prompt. On a system where
+:: Program Files denies writes to standard users this copy just silently
+:: no-ops, same as it already did whenever 6a's whitelist call failed for
+:: other reasons.
 if exist "%QZ_INSTALL_DIR%" (
     copy /Y "%CERT_FILE%" "%QZ_INSTALL_DIR%\override.crt" >nul 2>&1
     if exist "%QZ_INSTALL_DIR%\override.crt" (
@@ -514,6 +543,17 @@ if !DL_ATTEMPT! lss %MAX_RETRIES% (
     goto :download_loop
 )
 exit /b 1
+
+:: Runs a helper .cmd file elevated and with no visible window, waits for
+:: it to finish, and exits with its exit code - the ONLY UAC prompt in
+:: this script happens here. The window the user is looking at is never
+:: replaced or hidden; only the (windowless) elevated child is.
+:: in: %1 helper .cmd path.  out: errorlevel = the helper's exit code,
+:: or 1223 (ERROR_CANCELLED) if the UAC prompt was declined.
+:elevate_run
+set "ELEV_FILE=%~1"
+powershell -NoProfile -Command "try { $p = Start-Process -FilePath '!ELEV_FILE!' -Verb RunAs -WindowStyle Hidden -Wait -PassThru; exit $p.ExitCode } catch { exit 1223 }" >nul 2>&1
+exit /b !errorLevel!
 
 :: =========================================================================
 ::   UI (pure ASCII on disk - real glyphs decoded from hex at runtime)
