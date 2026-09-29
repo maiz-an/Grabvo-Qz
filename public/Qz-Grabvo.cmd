@@ -4,7 +4,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 title Grabvo - QZ Tray Setup
 
 :: =========================================================================
-::   Grabvo QZ Tray Auto-Installer (v8)
+::   Grabvo QZ Tray Auto-Installer (v9)
 ::   ------------------------------------------------------------------------
 ::   Installs QZ Tray and registers the Grabvo certificate.
 ::   Tries multiple whitelist invocation styles and verifies each by
@@ -102,7 +102,6 @@ call :step4
 call :step5
 call :step6
 call :step7
-call :step8
 
 call :complete
 goto :cleanup
@@ -111,7 +110,7 @@ goto :cleanup
 ::   STEP 1 - Workspace
 :: =========================================================================
 :step1
-call :header "1/8" "Preparing workspace"
+call :header "1/7" "Preparing workspace"
 if exist "%TEMP_DIR%" rd /s /q "%TEMP_DIR%" >nul 2>&1
 mkdir "%TEMP_DIR%" >nul 2>&1
 if not exist "%TEMP_DIR%" (
@@ -130,7 +129,7 @@ exit /b 0
 ::   STEP 2 - Find latest QZ Tray version
 :: =========================================================================
 :step2
-call :header "2/8" "Checking for the latest QZ Tray version"
+call :header "2/7" "Checking for the latest QZ Tray version"
 set "QZ_VERSION="
 for /f "usebackq delims=" %%v in (`powershell -NoProfile -Command "try { (Invoke-RestMethod -Uri 'https://api.github.com/repos/qzind/tray/releases/latest' -Headers @{'User-Agent'='Grabvo-Setup'} -TimeoutSec 20).tag_name } catch { exit 1 }" 2^>nul`) do set "QZ_VERSION=%%v"
 
@@ -147,7 +146,7 @@ exit /b 0
 ::   STEP 3 - Download QZ Tray installer
 :: =========================================================================
 :step3
-call :header "3/8" "Downloading QZ Tray"
+call :header "3/7" "Downloading QZ Tray"
 
 powershell -NoProfile -Command "!PROC_KILL!" >nul 2>&1
 timeout /t 1 /nobreak >nul 2>&1
@@ -170,23 +169,81 @@ call :ok "Downloaded QZ Tray !QZ_NUM!"
 exit /b 0
 
 :: =========================================================================
-::   STEP 4 - Install QZ Tray
+::   STEP 4 - Download Grabvo certificate
 :: =========================================================================
 :step4
-call :header "4/8" "Installing QZ Tray"
+call :header "4/7" "Downloading the Grabvo certificate"
+set "CERT_FILE=%TEMP_DIR%\%CERT_FILENAME%"
+call :download "%CERT_URL%" "%CERT_FILE%" "Grabvo certificate"
+
+if not exist "%CERT_FILE%" (
+    call :fail "Could not download %CERT_URL%"
+    goto :cleanup
+)
+
+set "PEM_OK=0"
+findstr /C:"BEGIN CERTIFICATE" "%CERT_FILE%" >nul 2>&1
+if !errorLevel! equ 0 set "PEM_OK=1"
+
+if "!PEM_OK!"=="0" (
+    call :warn "File doesn't look like a certificate - QZ Tray will validate it"
+) else (
+    call :ok "Certificate downloaded and verified"
+)
+exit /b 0
+
+:: =========================================================================
+::   STEP 5 - Install QZ Tray and register the certificate
+:: =========================================================================
+:step5
+call :header "5/7" "Installing QZ Tray and registering the certificate"
 
 set "QZ_OK=0"
+set "REGISTER_OK=0"
+set "USER_ALLOWED=%APPDATA%\qz\allowed.dat"
 
-:: The installer writes into Program Files, so it's the one step in this
-:: whole script that needs admin. Its command is written to a tiny helper
-:: .cmd and run through :elevate_run, which is the only place a UAC
-:: prompt appears - this window stays unelevated and visible the whole
-:: time, before and after.
+:: Snapshot allowed.dat BEFORE we run anything, so we can prove the
+:: whitelist call actually wrote to it.
+set "ALLOWED_BEFORE=0"
+if exist "%USER_ALLOWED%" (
+    for %%F in ("%USER_ALLOWED%") do set "ALLOWED_BEFORE=%%~zF"
+)
+
+:: Installing into Program Files AND every certificate-trust write below
+:: (override.crt in Program Files, override.crt + allowed.dat mirrored
+:: into ProgramData) all need admin - writing into Program Files fails
+:: silently without it no matter who's logged in, UAC or not. Bundling
+:: all of that into ONE hidden elevated helper keeps this the only place
+:: in the whole script a UAC prompt appears, while making sure none of
+:: these writes silently no-op the way they would if left unelevated.
+:: qz-tray-console --whitelist itself only needs the CURRENT user's own
+:: %APPDATA%, which resolves the same whether this helper is elevated or
+:: not (same user, just a temporarily elevated token) - it's included
+:: here purely so the whole sequence runs in one pass, in the original
+:: order, exactly like it did before this script stopped elevating the
+:: entire window.
 set "INSTALL_HELPER=%TEMP%\grabvo_install_helper_%RANDOM%.cmd"
 > "!INSTALL_HELPER!" (
     echo @echo off
     echo set "qz-print_silent=1"
     echo "!QZ_EXE!" /S
+    echo if exist "%QZ_CONSOLE%" ^(
+    echo     "%QZ_CONSOLE%" --whitelist "!CERT_FILE!" ^>nul 2^>^&1
+    echo     timeout /t 2 /nobreak ^>nul 2^>^&1
+    echo     taskkill /IM "qz-tray-console.exe" /F ^>nul 2^>^&1
+    echo     pushd "!TEMP_DIR!" ^>nul 2^>^&1
+    echo     "%QZ_CONSOLE%" --whitelist "!CERT_FILENAME!" ^>nul 2^>^&1
+    echo     popd ^>nul 2^>^&1
+    echo     timeout /t 2 /nobreak ^>nul 2^>^&1
+    echo     taskkill /IM "qz-tray-console.exe" /F ^>nul 2^>^&1
+    echo     "%QZ_CONSOLE%" --whitelist="!CERT_FILE!" ^>nul 2^>^&1
+    echo     timeout /t 2 /nobreak ^>nul 2^>^&1
+    echo     taskkill /IM "qz-tray-console.exe" /F ^>nul 2^>^&1
+    echo ^)
+    echo if exist "%QZ_INSTALL_DIR%" copy /Y "!CERT_FILE!" "%QZ_INSTALL_DIR%\override.crt" ^>nul 2^>^&1
+    echo if not exist "%PROGRAMDATA%\qz" mkdir "%PROGRAMDATA%\qz" ^>nul 2^>^&1
+    echo copy /Y "!CERT_FILE!" "%PROGRAMDATA%\qz\override.crt" ^>nul 2^>^&1
+    echo if exist "!USER_ALLOWED!" copy /Y "!USER_ALLOWED!" "%PROGRAMDATA%\qz\allowed.dat" ^>nul 2^>^&1
 )
 
 call :arrow "Setting up QZ Tray - approve the Windows prompt if one appears"
@@ -217,7 +274,29 @@ if "!QZ_OK!"=="0" (
 )
 call :ok "QZ Tray installed"
 
+:: The helper above already ran everything - this just reads back what
+:: happened, no further elevation needed.
+set "ALLOWED_AFTER=0"
+if exist "%USER_ALLOWED%" (
+    for %%F in ("%USER_ALLOWED%") do set "ALLOWED_AFTER=%%~zF"
+)
+if !ALLOWED_AFTER! GTR !ALLOWED_BEFORE! set "REGISTER_OK=1"
+
+if "!REGISTER_OK!"=="1" (
+    call :ok "Certificate registered with QZ Tray"
+) else if exist "%QZ_INSTALL_DIR%\override.crt" (
+    set "REGISTER_OK=1"
+    call :ok "Certificate registered (backup method)"
+) else (
+    call :warn "Could not confirm certificate registration"
+)
+
 powershell -NoProfile -Command "!PROC_KILL!" >nul 2>&1
+
+if "!REGISTER_OK!"=="0" (
+    call :fail "Could not register the certificate"
+    goto :cleanup
+)
 exit /b 0
 
 :poll_install
@@ -239,152 +318,10 @@ echo.
 exit /b 0
 
 :: =========================================================================
-::   STEP 5 - Download Grabvo certificate
-:: =========================================================================
-:step5
-call :header "5/8" "Downloading the Grabvo certificate"
-set "CERT_FILE=%TEMP_DIR%\%CERT_FILENAME%"
-call :download "%CERT_URL%" "%CERT_FILE%" "Grabvo certificate"
-
-if not exist "%CERT_FILE%" (
-    call :fail "Could not download %CERT_URL%"
-    goto :cleanup
-)
-
-set "PEM_OK=0"
-findstr /C:"BEGIN CERTIFICATE" "%CERT_FILE%" >nul 2>&1
-if !errorLevel! equ 0 set "PEM_OK=1"
-
-if "!PEM_OK!"=="0" (
-    call :warn "File doesn't look like a certificate - QZ Tray will validate it"
-) else (
-    call :ok "Certificate downloaded and verified"
-)
-exit /b 0
-
-:: =========================================================================
-::   STEP 6 - Register the certificate with QZ Tray
+::   STEP 6 - Enable auto-start on login
 :: =========================================================================
 :step6
-call :header "6/8" "Registering the certificate with QZ Tray"
-
-set "REGISTER_OK=0"
-set "USER_ALLOWED=%APPDATA%\qz\allowed.dat"
-
-:: Snapshot allowed.dat BEFORE we run anything, so we can prove a
-:: whitelist command actually wrote to it.
-set "ALLOWED_BEFORE=0"
-if exist "%USER_ALLOWED%" (
-    for %%F in ("%USER_ALLOWED%") do set "ALLOWED_BEFORE=%%~zF"
-)
-
-:: -------------------------------------------------------------------
-:: 6a - PRIMARY: qz-tray-console --whitelist
-:: -------------------------------------------------------------------
-:: Try three argument forms in order. The equals form (`--whitelist=`)
-:: is the one that triggers "The system cannot find the drive specified"
-:: on some Launch4j builds, so it's tried LAST.
-if exist "%QZ_CONSOLE%" (
-    call :arrow "Registering with QZ Tray"
-
-    :: --- Attempt 1: space-separated, full path quoted ---
-    "%QZ_CONSOLE%" --whitelist "%CERT_FILE%" >nul 2>&1
-    timeout /t 2 /nobreak >nul 2>&1
-    taskkill /IM "qz-tray-console.exe" /F >nul 2>&1
-
-    set "ALLOWED_AFTER=0"
-    if exist "%USER_ALLOWED%" (
-        for %%F in ("%USER_ALLOWED%") do set "ALLOWED_AFTER=%%~zF"
-    )
-    if !ALLOWED_AFTER! GTR !ALLOWED_BEFORE! set "REGISTER_OK=1"
-
-    :: --- Attempt 2: cwd = cert folder, pass bare filename ---
-    if "!REGISTER_OK!"=="0" (
-        pushd "%TEMP_DIR%" >nul 2>&1
-        "%QZ_CONSOLE%" --whitelist "%CERT_FILENAME%" >nul 2>&1
-        popd >nul 2>&1
-        timeout /t 2 /nobreak >nul 2>&1
-        taskkill /IM "qz-tray-console.exe" /F >nul 2>&1
-
-        set "ALLOWED_AFTER=0"
-        if exist "%USER_ALLOWED%" (
-            for %%F in ("%USER_ALLOWED%") do set "ALLOWED_AFTER=%%~zF"
-        )
-        if !ALLOWED_AFTER! GTR !ALLOWED_BEFORE! set "REGISTER_OK=1"
-    )
-
-    :: --- Attempt 3: equals form (last resort) ---
-    if "!REGISTER_OK!"=="0" (
-        "%QZ_CONSOLE%" --whitelist="%CERT_FILE%" >nul 2>&1
-        timeout /t 2 /nobreak >nul 2>&1
-        taskkill /IM "qz-tray-console.exe" /F >nul 2>&1
-
-        set "ALLOWED_AFTER=0"
-        if exist "%USER_ALLOWED%" (
-            for %%F in ("%USER_ALLOWED%") do set "ALLOWED_AFTER=%%~zF"
-        )
-        if !ALLOWED_AFTER! GTR !ALLOWED_BEFORE! set "REGISTER_OK=1"
-    )
-
-    :: Report
-    if "!REGISTER_OK!"=="1" (
-        call :ok "Certificate registered with QZ Tray"
-    ) else (
-        call :warn "Whitelist didn't change allowed.dat - using backups"
-    )
-) else (
-    call :warn "qz-tray-console.exe not found - using backups"
-)
-
-:: -------------------------------------------------------------------
-:: 6b - BACKUP: override.crt in the install directory
-:: -------------------------------------------------------------------
-:: This runs unelevated on purpose - it's a backup on top of 6a (which
-:: already succeeded in the common case) and 6c/6d below, not the primary
-:: mechanism, so it isn't worth a second UAC prompt. On a system where
-:: Program Files denies writes to standard users this copy just silently
-:: no-ops, same as it already did whenever 6a's whitelist call failed for
-:: other reasons.
-if exist "%QZ_INSTALL_DIR%" (
-    copy /Y "%CERT_FILE%" "%QZ_INSTALL_DIR%\override.crt" >nul 2>&1
-    if exist "%QZ_INSTALL_DIR%\override.crt" (
-        if "!REGISTER_OK!"=="0" set "REGISTER_OK=1"
-        call :ok "Backup registered (install folder)"
-    )
-)
-
-:: -------------------------------------------------------------------
-:: 6c - BACKUP: override.crt in ProgramData (all users)
-:: -------------------------------------------------------------------
-if not exist "%PROGRAMDATA%\qz" mkdir "%PROGRAMDATA%\qz" >nul 2>&1
-copy /Y "%CERT_FILE%" "%PROGRAMDATA%\qz\override.crt" >nul 2>&1
-if exist "%PROGRAMDATA%\qz\override.crt" (
-    if "!REGISTER_OK!"=="0" set "REGISTER_OK=1"
-    call :ok "Backup registered (all users)"
-)
-
-:: -------------------------------------------------------------------
-:: 6d - Mirror user trust to the machine-wide location
-:: -------------------------------------------------------------------
-if exist "%USER_ALLOWED%" (
-    if not exist "%PROGRAMDATA%\qz" mkdir "%PROGRAMDATA%\qz" >nul 2>&1
-    copy /Y "%USER_ALLOWED%" "%PROGRAMDATA%\qz\allowed.dat" >nul 2>&1
-    if !errorLevel! equ 0 (
-        call :ok "Trust mirrored to all users"
-    )
-)
-
-if "!REGISTER_OK!"=="0" (
-    call :fail "Could not register the certificate"
-    goto :cleanup
-)
-exit /b 0
-
-:: =========================================================================
-::   STEP 7 - Enable auto-start on login
-:: =========================================================================
-:step7
-call :header "7/8" "Setting up auto-start"
+call :header "6/7" "Setting up auto-start"
 
 set "STARTUP_OK=0"
 
@@ -402,10 +339,10 @@ if "!STARTUP_OK!"=="0" (
 exit /b 0
 
 :: =========================================================================
-::   STEP 8 - Start QZ Tray and verify
+::   STEP 7 - Start QZ Tray and verify
 :: =========================================================================
-:step8
-call :header "8/8" "Starting QZ Tray"
+:step7
+call :header "7/7" "Starting QZ Tray"
 
 powershell -NoProfile -Command "!PROC_KILL!" >nul 2>&1
 timeout /t 2 /nobreak >nul 2>&1
