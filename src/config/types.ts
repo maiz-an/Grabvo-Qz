@@ -119,8 +119,10 @@ export interface ReceiptStyleConfig {
 
   sectionSize: string;
   sectionTopGap: string;
+  sectionBottomGap: string;
 
   orderLineSize: string;
+  orderRowGap: string;
 
   metaSize: string;
   smallMetaSize: string;
@@ -130,6 +132,7 @@ export interface ReceiptStyleConfig {
   itemNameArSize: string;
   itemMetaSize: string;
   itemPadding: string;
+  itemDetailGap: string;
   itemNoteSize: string;
 
   subtotalTopGap: string;
@@ -210,6 +213,7 @@ export interface TicketStyleConfig {
   lineHeight: string;
 
   badgeSize: string;
+  headerGap: string;
 
   orderNumberSize: string;
   orderNumberWeight: string;
@@ -221,6 +225,7 @@ export interface TicketStyleConfig {
   itemNameSize: string;
   itemNameWeight: string;
   itemNameArSize: string;
+  itemDetailGap: string;
   itemNoteSize: string;
   itemPadding: string;
   itemDivider: string;

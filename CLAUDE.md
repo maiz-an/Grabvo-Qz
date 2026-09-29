@@ -318,3 +318,130 @@ edges matter more than anything else, the only real lever is the
 printer/paper itself (a newer thermal head, or higher-dpi hardware,
 prints smaller dots with less bleed) — not something fixable in this
 codebase.
+
+## Round 3.1 (same day) — full-width print + gap knobs made editable
+
+- `style.paddingLeftMm`/`paddingRightMm` (both receipt and ticket):
+  3mm → 0.7mm. That's ~1% of the 72mm printable width each side, so
+  content now fills ~98% of the print — was ~91.7% before (2× 4.2%).
+  If `printer.widthMm` ever changes, these should be re-set to ~1% of
+  the *new* width, not left at a fixed 0.7mm.
+- **New**: `style.sectionBottomGap` (default `"0.9mm"`) — the gap
+  between a section title's underline and its first line of content
+  (e.g. "ORDER" → "#0015"). This used to be hardcoded inside
+  `.section-label` in `receipt-template.ts`; pulled out to
+  `receipt-config.ts` so it's a one-line edit like everything else.
+  Its sibling, `style.sectionTopGap`, already existed — that's the gap
+  *above* a title, between it and whatever section came before it.
+  Together these two are the "gap between title and content" controls
+  the whole section-header rhythm.
+- User tightened `style.sectionTopGap` themselves, 2.5mm → 1.5mm.
+
+## Round 3.2 (same day) — two more gap knobs made editable
+
+Two more spacing requests, both about gaps *within* a section rather
+than around its title:
+
+- **New**: `style.orderRowGap` (default `"1mm"`) — the gap *between*
+  the Order section's own detail rows, e.g. "#0015 / Table 4" down to
+  "Merry / POS-01". This is different from `sectionBottomGap`:
+  `sectionBottomGap` is title → first row ("ORDER" → "#0015"),
+  `orderRowGap` is row → row ("#0015" → "Merry"). Was hardcoded as
+  `.order-grid`'s `row-gap: 1mm`.
+- **New**: `style.itemDetailGap` (default `"0.4mm"`) — the gap
+  *between one item's own detail lines*: item name → Arabic name →
+  "2 × 25.00" (qty×price) → note (e.g. "Extra hot · no sugar"). Was
+  hardcoded to 0.4mm across three separate CSS rules
+  (`.item-name-ar`, `.item-meta`, `.item-note`'s `margin-top`) — now
+  one shared knob. Not to be confused with `style.itemPadding`, which
+  is the gap *between two different items* (top+bottom padding on the
+  whole `.item` block), not within one.
+
+Both are visually unchanged from before (same default values as what
+was previously hardcoded) — this round was purely about exposing them
+in `receipt-config.ts` as editable knobs, nothing moved on paper.
+
+## Round 3.3 (same day) — reviewed the ticket (KOT) template
+
+Asked to review `ticket-template.ts` for anything worth changing.
+Findings:
+
+- It already benefits from both shared fixes above for free, since it
+  goes through the same `rasterizeHtmlToPngBase64()`/`PRINT_CSS` in
+  `qz.ts`: the full-width padding fix (`ticket.style.paddingLeftMm`/
+  `paddingRightMm` were already `0.7mm`) and, more importantly, the
+  `padding: 0 !important` bug — that one was *also* silently zeroing
+  `ticket.style.bottomPadding` on every kitchen ticket, not just the
+  receipt. Already fixed, already verified (KOT screenshot shows
+  "GX Gravbo" with real margin below it).
+- Text sizing/weight/color on the ticket was never in the same danger
+  zone the receipt was: its smallest text is ~8.5pt vs. the receipt's
+  7–7.5pt, and its colors (#333, #000) are already threshold-safe —
+  no dropout risk found.
+- Two gaps were still hardcoded in `ticket-template.ts` itself
+  (couldn't be tuned from config, same problem the receipt had before
+  this round) — pulled both into `ticket.style` for consistency,
+  **default values unchanged**:
+  - **New**: `style.headerGap` (default `"4mm"`) — gap between the
+    header's underline (below the KOT badge/order number/table/time)
+    and the first item.
+  - **New**: `style.itemDetailGap` (default `"0.6mm"`) — gap between
+    an item's name and its Arabic translation. The note callout
+    underneath keeps its own separate, deliberately larger gap
+    (1.6mm, still hardcoded) since it's a bordered box, not a plain
+    detail line — didn't fold that into the same knob.
+- Left the header's overall size/boldness and the big quantity/name
+  text alone on purpose — a KOT is meant to be read at a glance from
+  across a kitchen, so "bolder/bigger" is doing its job here, unlike
+  on the receipt where it read as heavy-handed. Flagged this as a
+  judgment call rather than trimming it unasked.
+
+## Round 3.4 (same day) — found a real Live-preview-vs-print mismatch
+
+Reported: "in preview there's no gap between ORDER's underline and
+#0015, but in print there's a real gap." Measured it directly instead
+of guessing — rendered the same receipt through both "Live preview"
+(the modal's iframe) and "Exact print" (the actual rasterized PNG that
+gets sent to the printer), then read pixel rows off each image to get
+the real gap in mm.
+
+**Confirmed real, not imagined**: the gap below a section's underline
+runs consistently **~2.8mm bigger in the raster than in Live preview**,
+same offset on ORDER (CSS grid), CUSTOMER (flex), and ITEMS (plain
+block) — so it isn't one layout type misbehaving, it's `html2canvas`
+(the library `rasterizeHtmlToPngBase64()` in `qz.ts` uses to turn the
+receipt into a printable image) positioning text within its own line
+box lower than a real browser does. This is a known category of
+html2canvas limitation (imprecise text vertical metrics), not a bug in
+this codebase to "fix" — it's baked into the library, so the practical
+fix is to compensate for it in the config instead.
+
+**What changed, all in `receipt-config.ts`:**
+
+- `style.sectionBottomGap`: `0.9mm` → **`-1mm`** (negative — yes, on
+  purpose). Since the raster always adds ~2.8mm on top of whatever this
+  is set to, a negative value is what gets the *actual printed* gap
+  down to something tight. **This will look wrong/overlapping in Live
+  preview from now on — that's expected.** Always judge this value (and
+  any future tweak to it) against "Exact print", never "Live preview" —
+  preview is not what prints, it never fully was, that's the entire
+  reason the "Exact print" toggle exists.
+- `style.sectionTopGap`: `1.5mm` → `3mm` — more breathing room above a
+  section title (Merry/POS-01 → CUSTOMER, Saif Eddine → ITEMS), as
+  requested.
+- Removed a stray hardcoded `.items { margin-top: 0.5mm; }` in
+  `receipt-template.ts` — this was stacking on top of
+  `sectionBottomGap` for the ITEMS section specifically, so ITEMS
+  always had a visibly bigger title→content gap than ORDER/CUSTOMER no
+  matter what `sectionBottomGap` was set to. Now all three sections are
+  driven by the same one number.
+
+Measured result on Exact print after these changes: ORDER → #0015 gap
+1.75mm, CUSTOMER → Saif Eddine gap 1.5mm, ITEMS → Tiramisu gap 3.0mm.
+ITEMS still runs a bit bigger than the other two — its first line
+(item name) is larger/bolder than ORDER's or CUSTOMER's, and bigger
+text carries more of its own built-in line-height leading, which adds
+to the same html2canvas offset. Didn't chase it further with a
+per-section override to avoid adding fragile, content-dependent
+special-casing; `sectionBottomGap` can be pushed more negative if this
+residual difference still bothers you on real paper.

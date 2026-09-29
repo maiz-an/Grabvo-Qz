@@ -94,16 +94,20 @@ export const receiptConfig: ReceiptConfig = {
     baseSize: "9.5pt",
     // ← CHANGED: was "1.4". Tighter, still legible, noticeably shorter
     //   receipts. 1.25 is a good sweet spot for thermal.
-    lineHeight: "1.25",
+    lineHeight: "1.15",
 
     // pageWidth must equal printer.widthMm so content is designed for
     // exactly the raster the printer receives.
     pageWidth: "72mm",
-    // ← CHANGED: was "4mm". Reduced so we don't waste printhead area.
-    paddingLeftMm: "3mm",
-    paddingRightMm: "3mm",
+    // ← CHANGED: was "3mm" (≈4.2% of 72mm each side). Requested: content
+    //   should fill ~98% of the printable width, ~1% margin each side.
+    //   1% of 72mm = 0.72mm — rounded to 0.7mm. If a printer's
+    //   `widthMm` is changed, these should scale with it (1% of
+    //   whatever the new widthMm is), not stay fixed at 0.7mm.
+    paddingLeftMm: "0.7mm",
+    paddingRightMm: "0.7mm",
     // ← CHANGED: was "4mm".
-    topPadding: "1mm",
+    topPadding: "0.5mm",
     // ← CHANGED: 2mm → 3mm. The footer margins got trimmed hard in the
     //   last pass, which left "powered" sitting right at the edge
     //   before the cut feed — felt jammed/half-hidden. This gives it
@@ -136,10 +140,42 @@ export const receiptConfig: ReceiptConfig = {
     showLogo: true,
 
     sectionSize: "7pt",
-    // ← CHANGED: was "4mm".
-    sectionTopGap: "2.5mm",
+    // Gap ABOVE a section title (e.g. space before "CUSTOMER" starts,
+    // or before "ITEMS" starts) — between the end of the previous
+    // section's content and this title.
+    // ← CHANGED: 1.5mm → 3mm. Requested more breathing room here —
+    //   "Merry / POS-01" felt too close to "CUSTOMER" right under it,
+    //   same for "Saif Eddine" → "ITEMS".
+    sectionTopGap: "3mm",
+    // Gap BELOW a section title's underline, before its content starts
+    // (e.g. "ORDER" → "#0015", or "ITEMS" → "Tiramisu Arabic Coffee").
+    // ← CHANGED: 0.9mm → -1mm (yes, negative — see below). IMPORTANT:
+    //   this looks wrong/overlapping in "Live preview" — that's
+    //   expected, ignore it. Measured directly against a rasterized
+    //   "Exact print" (what actually hits the paper): the real printed
+    //   gap runs a roughly constant ~2.8mm *bigger* than whatever
+    //   margin is set here, because html2canvas (the library that
+    //   turns the receipt into the image sent to the printer)
+    //   positions text within its own line lower than a real browser
+    //   does — same fixed offset on every section (confirmed: same
+    //   effect on ORDER, CUSTOMER,
+    //   and ITEMS, which use three different CSS layouts, so it's not
+    //   a layout bug, just how that library renders text). Bottom
+    //   line: always judge this value against "Exact print", never
+    //   "Live preview" — preview will now look too tight/overlapping,
+    //   that's the negative margin compensating for the offset above.
+    //   Want it tighter/looser on the real print? Move this number,
+    //   not what Live preview shows you.
+    sectionBottomGap: "-1mm",
 
     orderLineSize: "9pt",
+    // ← NEW: gap BETWEEN the order-detail rows themselves — e.g.
+    //   "#0015 / Table 4" down to "Merry / POS-01". Was hardcoded to
+    //   1mm as `.order-grid`'s row-gap — pulled out here. This is a
+    //   *different* gap from sectionBottomGap above: sectionBottomGap
+    //   is "ORDER" (the title) → "#0015" (the first row);
+    //   orderRowGap is "#0015" (first row) → "Merry" (second row).
+    orderRowGap: "0.5mm",
 
     metaSize: "8.5pt",
     // ← CHANGED: was "7.5pt". Verified against an actual raster+
@@ -159,6 +195,12 @@ export const receiptConfig: ReceiptConfig = {
     //   items — this is padding on EACH item (top+bottom), so it adds
     //   up fast across a longer order.
     itemPadding: "1.2mm",
+    // ← NEW: gap BETWEEN one item's own detail lines — item name →
+    //   Arabic name → "2 × 25.00" (qty×price) → note (e.g. "Extra hot
+    //   · no sugar"). Was hardcoded to 0.4mm across three separate CSS
+    //   rules — pulled out here as one shared knob. This is *within*
+    //   one item; `itemPadding` above is the space *between* items.
+    itemDetailGap: "0.4mm",
     itemNoteSize: "7.5pt",
 
     // ← CHANGED: was "3mm".
@@ -262,13 +304,13 @@ export const receiptConfig: ReceiptConfig = {
 
     style: {
       // ← CHANGED: was "72mm" — still 72, matching printer.widthMm.
-      pageWidth: "72mm",
-      // ← CHANGED: was "4mm".
-      paddingLeftMm: "3mm",
-      // ← CHANGED: was "4mm".
-      paddingRightMm: "3mm",
+      pageWidth: "78mm",
+      // ← CHANGED: was "3mm" — same "~1% each side" request applied to
+      //   tickets too, for consistency with the receipt above.
+      paddingLeftMm: "0.0mm",
+      paddingRightMm: "0.0mm",
       // ← CHANGED: was "5mm".
-      topPadding: "1mm",
+      topPadding: "0.5mm",
       // ← CHANGED: was "5mm".
       bottomPadding: "2mm",
 
@@ -281,6 +323,10 @@ export const receiptConfig: ReceiptConfig = {
       lineHeight: "1.25",
 
       badgeSize: "10pt",
+      // ← NEW: gap between the header's underline (below "KOT" / order
+      //   number / table / time) and the first item row. Was hardcoded
+      //   as `.tk-header`'s margin-bottom: 4mm.
+      headerGap: "1mm",
       orderNumberSize: "32pt",
       orderNumberWeight: "900",
       orderMetaSize: "12pt",
@@ -291,6 +337,9 @@ export const receiptConfig: ReceiptConfig = {
       itemNameSize: "13pt",
       itemNameWeight: "800",
       itemNameArSize: "10pt",
+      // ← NEW: gap between an item's name and its Arabic translation
+      //   (within the same item). Was hardcoded to 0.6mm.
+      itemDetailGap: "0.3mm",
       itemNoteSize: "10pt",
       // ← CHANGED: was "3mm".
       itemPadding: "2mm",

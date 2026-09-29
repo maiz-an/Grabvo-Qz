@@ -166,7 +166,9 @@ export function buildTicketHtml(opts: TicketOptions = {}): string {
   .tk-header {
     padding-bottom: 3.5mm;
     border-bottom: 2px solid #000;
-    margin-bottom: 4mm;
+    /* Gap between the header's underline and the first item below it
+       — style.headerGap. */
+    margin-bottom: ${TS.headerGap || "4mm"};
   }
 
   .tk-badge {
@@ -276,7 +278,11 @@ export function buildTicketHtml(opts: TicketOptions = {}): string {
   }
 
   .tk-item-name-ar {
-    margin-top: 0.6mm;
+    /* Gap between the item name and its Arabic translation, within
+       the same item — style.itemDetailGap. (The note callout below
+       has its own deliberately larger gap — it's a bordered box, not
+       a plain detail line.) */
+    margin-top: ${TS.itemDetailGap || "0.6mm"};
     font-size: ${TS.itemNameArSize || "10pt"};
     font-weight: 500;
     color: #333;

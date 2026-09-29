@@ -378,13 +378,15 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
   .biz-contact .dim { color: #3a3a3a; }
 
   .section-label {
-    /* ← CHANGED: padding-bottom 1mm → 1.7mm (keep — this is what
-       stops the rule touching the letters above it). margin-bottom
-       1.8mm → 1.3mm → 0.9mm (this is the gap BELOW the rule, before
-       the section's content starts — e.g. "ORDER" to "#0015" — tighter
-       now that the padding-bottom above is doing the visual-separation
-       job on its own). */
-    margin: ${S.sectionTopGap || "4mm"} 0 0.9mm;
+    /* margin-top:    gap ABOVE the title, i.e. between the end of the
+       previous section and this title — style.sectionTopGap.
+       padding-bottom: gap between the title's letters and the
+       underline itself — kept fixed at 1.7mm, this is what stops the
+       rule from touching the letters, not really a "gap" to tune.
+       margin-bottom: gap BELOW the underline, before the section's
+       own content starts (e.g. "ORDER" → "#0015") — style.sectionBottomGap.
+       Both gaps now live in receipt-config.ts, nothing to edit here. */
+    margin: ${S.sectionTopGap || "4mm"} 0 ${S.sectionBottomGap || "0.9mm"};
     padding-bottom: 1.7mm;
     font-size:   ${S.sectionSize || "7pt"};
     font-weight: 900;
@@ -398,7 +400,9 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
     display: grid;
     grid-template-columns: 1fr 1fr;
     column-gap: 4mm;
-    row-gap: 1mm;
+    /* Gap BETWEEN the order-detail rows themselves — e.g. "#0015 /
+       Table 4" to "Merry / POS-01" — style.orderRowGap. */
+    row-gap: ${S.orderRowGap || "1mm"};
     font-size: ${S.orderLineSize || "9pt"};
     line-height: 1.35;
   }
@@ -486,7 +490,13 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
     text-align: left;
   }
 
-  .items { margin-top: 0.5mm; }
+  /* No margin-top here on purpose — ITEMS' title→content gap should
+     behave exactly like every other section's (ORDER, CUSTOMER), both
+     driven purely by style.sectionBottomGap. This rule used to add an
+     extra fixed 0.5mm on top of that, which is why ITEMS always sat
+     with a bigger gap than the others no matter what sectionBottomGap
+     was set to. */
+  .items { margin-top: 0; }
   .item  { padding: ${S.itemPadding || "2mm"} 0; }
 
   .item-line {
@@ -512,7 +522,9 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
     color: #000;
   }
   .item-name-ar {
-    margin-top: 0.4mm;
+    /* Gap between one item-detail line and the next (name → name-ar →
+       meta → note, all within the same item) — style.itemDetailGap. */
+    margin-top: ${S.itemDetailGap || "0.4mm"};
     font-size: ${S.itemNameArSize || "8pt"};
     font-weight: ${S.arabicWeightItemName || "500"};
     color: #333;
@@ -520,16 +532,14 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
     text-align: left;
   }
   .item-meta {
-    /* ← CHANGED: 0.6mm → 0.4mm. */
-    margin-top: 0.4mm;
+    margin-top: ${S.itemDetailGap || "0.4mm"};
     font-size: ${S.itemMetaSize || "7.5pt"};
     /* ← CHANGED: 500 → 600, same reasoning as .order-sub above. */
     font-weight: 600;
     color: #555;
   }
   .item-note {
-    /* ← CHANGED: 0.6mm → 0.4mm. */
-    margin-top: 0.4mm;
+    margin-top: ${S.itemDetailGap || "0.4mm"};
     font-size:   ${S.itemNoteSize || "7.5pt"};
     /* ← CHANGED: italic removed, #888 → #333. This was the worst
        offender on paper: a slanted stroke at 7.5pt is almost entirely
