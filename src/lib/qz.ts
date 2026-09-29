@@ -184,8 +184,22 @@ export function measureReceiptHeightMm(
  * ================================================================= */
 const PRINT_CSS = `
   html, body, :root {
+    /* ---- CHANGED: dropped "padding: 0 !important" here ----
+       This was the actual cause of "powered is hiding at the bottom"
+       (and every other bottom-padding change silently doing nothing).
+       This rule was meant to zero out a browser's default UA margin on
+       a real html/body pair (used for the live preview iframe, where
+       html and body are still two separate elements). But for
+       rasterization, html/body/root all get scoped down onto ONE div
+       (see the regex above) -- so this !important was landing on the
+       SAME element as the template's own "body { padding: ... }" rule
+       and, being !important, always won, forcing all four padding
+       sides to 0 no matter what the template asked for. Margin reset
+       is harmless to keep (the template already sets its own margin
+       to 0 too, so this is just a redundant safety net); padding is
+       not -- it must be left to the template, which is the only place
+       that knows what padding a given receipt actually needs. */
     margin: 0 !important;
-    padding: 0 !important;
     -webkit-font-smoothing: none !important;
     -moz-osx-font-smoothing: unset !important;
     text-rendering: geometricPrecision !important;
@@ -271,8 +285,23 @@ export async function rasterizeHtmlToPngBase64(
   const host = document.createElement("div");
   host.id = scopeId;
   host.setAttribute("aria-hidden", "true");
+  // ← CHANGED: "position: fixed" → "position: absolute". This is the fix
+  //   for "powered is hiding at bottom" / content getting cut off on
+  //   longer receipts. `fixed` positions relative to the browser's
+  //   *viewport*, and html2canvas clones+crops based on the element's
+  //   getBoundingClientRect() in that viewport — so once the receipt got
+  //   taller than the window (easy: a 3-item receipt is well over
+  //   900px), everything past the bottom edge of the visible window was
+  //   silently dropped from the raster, even though it rendered fine on
+  //   screen (a live iframe scrolls, so you'd never see the cut). With
+  //   `absolute`, the box just extends the page's scrollable height
+  //   instead of being viewport-clamped, so html2canvas captures the
+  //   full element no matter how tall the receipt is or how small the
+  //   window happens to be. Visually identical (still off-screen at
+  //   left:-10000px, still doesn't affect page layout/scroll for the
+  //   user) — this only changes what html2canvas is able to see.
   host.style.cssText = [
-    "position: fixed",
+    "position: absolute",
     "left: -10000px",
     "top: 0",
     `width: ${widthMm}mm`,

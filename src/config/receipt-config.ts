@@ -104,15 +104,20 @@ export const receiptConfig: ReceiptConfig = {
     paddingRightMm: "3mm",
     // ← CHANGED: was "4mm".
     topPadding: "1mm",
-    // ← CHANGED: was "5mm". Kept a touch larger so the cut-feed has
-    //   clean white space below the last line.
-    bottomPadding: "2mm",
+    // ← CHANGED: 2mm → 3mm. The footer margins got trimmed hard in the
+    //   last pass, which left "powered" sitting right at the edge
+    //   before the cut feed — felt jammed/half-hidden. This gives it
+    //   breathing room without bringing back the old wasted paper.
+    bottomPadding: "3mm",
 
     arabicFont:
       "'Tahoma', 'Segoe UI', 'Simplified Arabic', 'Traditional Arabic', 'Noto Naskh Arabic', 'Arial', sans-serif",
 
     itemPriceSize: "9pt",
-    itemPriceWeight: "700",
+    // ← CHANGED: was "700". Item name (below) also dropped a step —
+    //   both were reading heavier than intended next to the rest of
+    //   the receipt.
+    itemPriceWeight: "600",
     arabicWeightHead: "700",
     arabicWeightBody: "600",
     arabicWeightCurrency: "700",
@@ -150,8 +155,10 @@ export const receiptConfig: ReceiptConfig = {
     itemNameSize: "10pt",
     itemNameArSize: "8pt",
     itemMetaSize: "7.5pt",
-    // ← CHANGED: was "2mm".
-    itemPadding: "1.5mm",
+    // ← CHANGED: was "2mm", then "1.5mm". A touch tighter again between
+    //   items — this is padding on EACH item (top+bottom), so it adds
+    //   up fast across a longer order.
+    itemPadding: "1.2mm",
     itemNoteSize: "7.5pt",
 
     // ← CHANGED: was "3mm".

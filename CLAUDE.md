@@ -237,3 +237,84 @@ pixel level. That's how the dropped-letter bugs above were actually
 found (not guessed) and how the fixes were confirmed to work, in the
 same session. Worth repeating this loop for any future thermal-print
 legibility change instead of trusting the live HTML preview.
+
+## Round 3 (2026-09-29, later same day) — spacing polish + real bug fix
+
+Feedback this round, from a second real printed receipt: gap between a
+section title (e.g. "ORDER") and its first row felt too big; item
+name/price felt too bold; gaps between item detail lines too big;
+"GX · Gravbo" was getting cut off / hugging the bottom edge; the
+Customer block read as a literal "Name: Saif Eddine" label/value line
+and should instead read like the Order block above it (position says
+what it is, no label); text edges look a little soft up close.
+
+### Spacing/weight tweaks (`receipt-template.ts`, `receipt-config.ts`)
+
+- `.section-label` `margin-bottom` (the gap *below* the underline,
+  before the section's first content row — e.g. ORDER → #0015):
+  0.9mm, down from 1.3mm. `padding-bottom` (the gap *above* the
+  underline, keeping it off the heading letters — Round 2's fix) left
+  alone.
+- `.item-name` weight 800 → 700, `style.itemPriceWeight` 700 → 600 —
+  still the heaviest text on the item line (by design, it's the thing
+  a cashier scans first), just less heavy-handed than before.
+- `.item-meta`/`.item-note` `margin-top` 0.6mm → 0.4mm, and
+  `style.itemPadding` 1.5mm → 1.2mm — tighter rhythm between an item's
+  own name/qty/note lines and between one item and the next.
+- Customer block rebuilt: it used to be a stack of `kv()` label/value
+  rows ("Name: Saif Eddine", "Phone: …"). Now it's positional, matching
+  how the Order block above it already reads (`#0015` / `Table 4`, no
+  labels either): name on the left, phone on the right of the same
+  row (`.customer-row` — a flex row, so it only renders phone at all
+  when there is one), then address and email each get their own line
+  below (`.customer-line`). No "Name:"/"Phone:" text anywhere.
+
+### The actual bug: "GX · Gravbo" hiding at the bottom (`qz.ts`)
+
+This was **not** a height/auto-fit problem, despite how it looked (a
+sliver of the last line getting cut off in the raster). Confirmed with
+`getComputedStyle()` inside the render pipeline: the receipt's own
+`body { padding: … ${bottomPadding} … }` rule — the thing that's
+supposed to put breathing room below the last line — was computing to
+`padding-bottom: 0px` no matter what `receipt-config.ts` said.
+
+Root cause: `rasterizeHtmlToPngBase64()` renders into a single
+off-screen `<div>` standing in for the whole document, so it rewrites
+the template's `html`/`body`/`:root` selectors to all point at that one
+div (see the regex in `qz.ts`). The shared `PRINT_CSS` block (used to
+force crisp, non-antialiased text before the 1-bit threshold) also has
+an `html, body, :root { padding: 0 !important; … }` rule — meant to
+zero out a browser's default UA margin on a **real, separate**
+`<html>`/`<body>` pair in the live preview iframe. Scoped down onto the
+**same single div** as the template's own body padding rule, that
+`!important` always won and silently forced every receipt's top/right/
+bottom/left padding to 0 — which is also why bumping `bottomPadding`
+earlier (2mm→3mm) had no visible effect. Fixed by dropping
+`padding: 0 !important` from that shared rule (kept `margin: 0
+!important` — harmless, and the template already zeroes its own
+margin too). This is shared by both `receipt-template.ts` and
+`ticket-template.ts`, so kitchen tickets get real bottom padding again
+too, not just receipts.
+
+Verified: re-rasterized and read the raw PNG bytes directly (not the
+on-screen preview) before/after — before, ink reached to within 1–2px
+of the image's bottom edge with a glyph visibly sliced mid-letter;
+after, "GX · Gravbo" prints complete with a clean margin below it, on
+both the Checkout Receipt and the KOT ticket.
+
+### "Text edges look a little faded up close"
+
+Looked for a safe fix and don't think there is one left to make here.
+Everything that *was* controllable — font weight, color darkness,
+italics, threshold, anti-aliasing before the 1-bit cut, supersampling —
+was already addressed in Round 2. What's left is a property of direct
+thermal printing itself: at 203dpi, each dot is a physical burned spot
+on heat-sensitive paper, and heat bleeds slightly outward from where
+the printhead actually touched (thermal "dot gain") — that's the soft
+edge you're seeing up close, not a rendering/software softness. Pushing
+weight or threshold further to compensate would start fattening small
+glyphs back into the "bolder/muddy" look Round 1 fixed. If sharper
+edges matter more than anything else, the only real lever is the
+printer/paper itself (a newer thermal head, or higher-dpi hardware,
+prints smaller dots with less bleed) — not something fixable in this
+codebase.

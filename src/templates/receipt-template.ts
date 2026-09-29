@@ -105,15 +105,27 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
     </div>`
     : "";
 
-  /* ---------- customer ---------- */
+  /* ---------- customer ----------
+     Name + phone side by side (name left, phone right — no "Name:"
+     label, the position says what it is), then address and email each
+     on their own full-width line below. Matches how the Order section
+     above it already reads (#0015 / Table 4, no labels either). */
   let customerHtml = "";
   if (CU.name || CU.phone || CU.email || CU.address) {
+    const rowHtml =
+      CU.name || CU.phone
+        ? `
+      <div class="customer-row">
+        ${CU.name ? `<div class="customer-name">${esc(CU.name)}</div>` : "<div></div>"}
+        ${CU.phone ? `<div class="customer-phone">${esc(CU.phone)}</div>` : ""}
+      </div>`
+        : "";
+
     customerHtml = `
       ${sectionLabel("Customer")}
-      ${kv("Name", CU.name)}
-      ${kv("Phone", CU.phone)}
-      ${kv("Email", CU.email)}
-      ${kv("Address", CU.address)}
+      ${rowHtml}
+      ${CU.address ? `<div class="customer-line">${esc(CU.address)}</div>` : ""}
+      ${CU.email ? `<div class="customer-line">${esc(CU.email)}</div>` : ""}
     `;
   }
 
@@ -366,11 +378,13 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
   .biz-contact .dim { color: #3a3a3a; }
 
   .section-label {
-    /* ← CHANGED: padding-bottom 1mm → 1.7mm, margin-bottom 1.8mm →
-       1.3mm. Same total height as before (net ~0), but the rule was
-       sitting almost on top of the letters — this gives the heading
-       room to breathe without adding paper. */
-    margin: ${S.sectionTopGap || "4mm"} 0 1.3mm;
+    /* ← CHANGED: padding-bottom 1mm → 1.7mm (keep — this is what
+       stops the rule touching the letters above it). margin-bottom
+       1.8mm → 1.3mm → 0.9mm (this is the gap BELOW the rule, before
+       the section's content starts — e.g. "ORDER" to "#0015" — tighter
+       now that the padding-bottom above is doing the visual-separation
+       job on its own). */
+    margin: ${S.sectionTopGap || "4mm"} 0 0.9mm;
     padding-bottom: 1.7mm;
     font-size:   ${S.sectionSize || "7pt"};
     font-weight: 900;
@@ -410,6 +424,34 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
     font-weight: 600;
     color: #555;
     letter-spacing: 0.02em;
+  }
+
+  /* Customer — name left / phone right (no "Name:" label, same
+     positional pattern as the Order section above it), address and
+     email each their own line underneath. */
+  .customer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 3mm;
+    font-size: ${S.orderLineSize || "9pt"};
+  }
+  .customer-name {
+    font-weight: 800;
+    color: #000;
+    overflow-wrap: anywhere;
+  }
+  .customer-phone {
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+  }
+  .customer-line {
+    margin-top: 0.8mm;
+    font-size: ${S.smallMetaSize || "8pt"};
+    font-weight: 600;
+    color: #333;
+    overflow-wrap: anywhere;
   }
 
   .kv {
@@ -455,7 +497,9 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
   }
   .item-name {
     font-size:   ${S.itemNameSize || "10pt"};
-    font-weight: 800;
+    /* ← CHANGED: 800 → 700. Still the heaviest text in the items list
+       (name > price > meta/note), just not as heavy-handed. */
+    font-weight: 700;
     letter-spacing: -0.005em;
     line-height: 1.25;
     overflow-wrap: anywhere;
@@ -476,14 +520,16 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
     text-align: left;
   }
   .item-meta {
-    margin-top: 0.6mm;
+    /* ← CHANGED: 0.6mm → 0.4mm. */
+    margin-top: 0.4mm;
     font-size: ${S.itemMetaSize || "7.5pt"};
     /* ← CHANGED: 500 → 600, same reasoning as .order-sub above. */
     font-weight: 600;
     color: #555;
   }
   .item-note {
-    margin-top: 0.6mm;
+    /* ← CHANGED: 0.6mm → 0.4mm. */
+    margin-top: 0.4mm;
     font-size:   ${S.itemNoteSize || "7.5pt"};
     /* ← CHANGED: italic removed, #888 → #333. This was the worst
        offender on paper: a slanted stroke at 7.5pt is almost entirely
