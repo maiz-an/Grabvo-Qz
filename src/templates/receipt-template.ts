@@ -399,7 +399,18 @@ export function buildReceiptHtml(opts: ReceiptOptions = {}): string {
     text-transform: uppercase;
     letter-spacing: 0.2em;
     color: #000;
-    border-bottom: 1px solid #000;
+    /* ← CHANGED: 1px → 1.5px. Reported: CUSTOMER's underline was
+       missing from the "Exact print" simulation even though ORDER's
+       (same class, right above it) rendered fine and the real
+       printed paper had it too — same html/CSS, so this is a raster
+       edge case, not a layout bug: a 1px rule is the thinnest line on
+       the whole receipt, and it's the one most likely to fall on a
+       sub-pixel boundary that the raster's supersample/threshold
+       rounds away depending on exactly where the section lands on the
+       page. 1.5px matches the border weight already used everywhere
+       else a black rule needs to survive that pipeline (.grand,
+       .tk-notes, .tk-footer) — same fix, same reasoning. */
+    border-bottom: 1.5px solid #000;
   }
 
   .order-grid {

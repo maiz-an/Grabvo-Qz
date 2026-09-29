@@ -514,3 +514,68 @@ Files touched: `PreviewModal.tsx`, `receipt-template.ts` (`.grand`
 family + `totalAr`), `ticket-template.ts` (`.tk-badge`). No config
 changes this round — everything was CSS/logic fixes inside the
 templates and the preview component.
+
+## Round 3.6 (same day) — cancellation ticket cleanup + a flaky missing underline
+
+**Cancellation ticket ("CANCELLED" ticket, `mode: "cancellation"`):**
+
+Reported three things wrong, all on the cancellation ticket specifically
+(not the regular KOT): a stray line "on the right side", a line "at the
+top of each product", and a strikethrough on the item name that "isn't
+visible on print". Investigated on the actual raster rather than
+guessing, and it turned out to be **two bugs, not three** — the "top of
+each product" line and the "cut" line were the same bug wearing two
+descriptions:
+
+- `text-decoration: line-through` on a **wrapped, multi-line** item name
+  (e.g. "TIRAMISU ARABIC" / "COFFEE") isn't positioned correctly by
+  html2canvas. Confirmed on the raster: it drew the strikethrough
+  correctly through the text, **and** a second, extra decoration line
+  floating well above the text entirely — toggling `text-decoration`
+  off and re-rendering made both disappear together, which is what
+  confirmed it was one cause, not two. This is the same category of
+  html2canvas limitation as the border/flex issues documented earlier
+  in this file (text-decoration positioning, not just plain text
+  positioning, isn't reliable) — so it's removed rather than
+  fought. The CANCELLED badge and the black "REMOVED PRODUCTS" band
+  already carry the "this is void" meaning without it.
+- `.tk-item-void`'s own `border-left` + `padding-left` (meant to give
+  each cancelled item its own short left-edge marker) was rendering as
+  one **continuous vertical line down the entire item list** — with
+  every item in a cancellation ticket getting the same class, the
+  individual 2.5px bars stack with essentially no gap between them and
+  read as a single line running top to bottom, not "each item has its
+  own marker." That's the line reported as being on the ticket's edge.
+  Removed for the same reason as above — redundant with the badge/band.
+
+The small vertical bar next to a **note** ("Extra hot · no sugar") is
+untouched — that's `.tk-item-note`'s own border, a deliberate callout
+style shared with the regular KOT ticket, and wasn't part of what was
+reported.
+
+**Order Receipt — CUSTOMER's underline occasionally missing from the simulation:**
+
+Reported: the "Exact print" simulation was missing the underline below
+"CUSTOMER" (ORDER's underline, same CSS class, rendered fine right
+above it), while the real printed paper had it. Couldn't reproduce it
+on demand with the same content — which itself is a clue: same HTML,
+same CSS, different result between runs points to the raster pipeline
+being borderline on this one rule, not a layout bug. Two defensive
+fixes, both aimed at the same root cause (a 1px rule is the thinnest,
+least forgiving line on the receipt, so it's the first thing to fall
+victim to any timing or sub-pixel rounding edge case in the raster):
+
+- `.section-label`'s `border-bottom`: `1px` → `1.5px` — matches the
+  border weight already used everywhere else a black rule needs to
+  reliably survive the raster+threshold pipeline (`.grand`, `.tk-notes`,
+  `.tk-footer` are all already 1.5px+; this was the one rule in the file
+  still at the fragile 1px).
+- `rasterizeHtmlToPngBase64()` in `qz.ts` now waits **two**
+  `requestAnimationFrame` ticks after `document.fonts.ready` instead of
+  one, before handing the element to html2canvas — one extra frame
+  (~16ms) of margin in case the font swap's layout reflow hadn't fully
+  settled when the capture fired.
+
+Files touched: `ticket-template.ts` (`.tk-item-void` block),
+`receipt-template.ts` (`.section-label`), `qz.ts`
+(`rasterizeHtmlToPngBase64`). No config changes.

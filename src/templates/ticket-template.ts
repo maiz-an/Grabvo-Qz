@@ -235,14 +235,27 @@ export function buildTicketHtml(opts: TicketOptions = {}): string {
     line-height: 1.3;
   }
 
-  .tk-item-void {
-    border-left: 2.5px solid #000;
-    padding-left: 2.5mm;
-  }
-  .tk-item-void .tk-item-name {
-    text-decoration: line-through;
-    text-decoration-thickness: 1.5px;
-  }
+  /* ← CHANGED: this used to draw a border-left + padding-left on every
+     cancelled item, and a line-through on the item name. Two separate
+     raster-only bugs made both look broken:
+     1. With every item in a cancellation ticket getting this border,
+        the individual 2.5px bars stacked with almost no gap between
+        them and read as one continuous vertical line running down the
+        whole item list — not the "each item has its own marker" look
+        it was meant to have. Removed entirely rather than chase a gap
+        fix, since the CANCELLED badge + black "REMOVED PRODUCTS" band
+        already carry that meaning.
+     2. text-decoration: line-through on a wrapped, multi-line item
+        name (e.g. "TIRAMISU ARABIC" / "COFFEE") isn't positioned
+        correctly by html2canvas — confirmed on the raster that it drew
+        an extra decoration line floating well ABOVE the text (this is
+        what looked like a stray "line above each product") in
+        addition to the one actually through the text, and asked to
+        toggle text-decoration off/on to confirm it was the cause (it
+        was — both lines vanish together). Text decorations are the
+        same category of html2canvas limitation as the borders/flex
+        issues elsewhere in this file, so — like those — the fix is to
+        stop depending on it rather than fight it. */
 
   .tk-item {
     display: flex;

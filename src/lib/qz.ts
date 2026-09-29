@@ -333,6 +333,16 @@ export async function rasterizeHtmlToPngBase64(
         /* ignore */
       }
     }
+    // ← CHANGED: one rAF → two. A single frame after `fonts.ready` can
+    //   still land html2canvas's capture mid-reflow on some receipts —
+    //   the font swap triggers a layout pass, and thin 1px rules (like
+    //   .section-label's underline) sitting near a fractional-pixel
+    //   boundary are the first thing to disappear if the capture races
+    //   that reflow. A second frame gives layout one more full tick to
+    //   settle before the raster is taken, for the cost of one frame
+    //   (~16ms) — cheap insurance for a preview that's supposed to be
+    //   pixel-identical to the real print.
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
     await new Promise<void>((r) => requestAnimationFrame(() => r()));
 
     /* ---------------------------------------------------------------
